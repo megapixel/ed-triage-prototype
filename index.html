@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ED Triage Prototype</title>
+<style>
+:root{
+  --bg:#e9ebee; --ink:#1b1d20; --mute:#777; --line:#eaeaea; --soft:#f6f7f7; --hi:#777; --dark:#1f2328;
+  --p1:#d93636; --p2:#ee8a1c; --p3:#e4be1f; --p4:#3aa655; --ok:#2e8b57; --err:#c0392b; --blue:#2b6cb0;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+button{font:inherit;cursor:pointer}
+.top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top h1{font-size:16px;margin:0 8px 0 0}
+.seg{display:inline-flex;border:1px solid #ccc;border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:7px 14px}
+.seg button.on{background:var(--dark);color:#fff}
+.top .sp{flex:1}
+.top .lnk{background:none;border:1px solid #ccc;border-radius:8px;padding:6px 12px;color:#444}
+.stage{display:flex;justify-content:center;padding:20px 12px 40px}
+.device{background:#fff;border:10px solid #111;border-radius:34px;overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.device.phone{width:390px;height:780px;max-width:100%}
+.device.tablet{width:860px;height:640px;max-width:100%}
+@media (max-width:520px){.device{border-width:0;border-radius:0;height:calc(100vh - 110px)!important}.stage{padding:0}}
+.nav{background:var(--dark);color:#fff;display:flex;align-items:center;gap:8px;padding:12px 14px;min-height:50px;flex:none}
+.nav h2{font-size:17px;margin:0;flex:1;font-weight:600}
+.nav .back{background:none;border:0;color:#fff;font-size:20px;padding:0 6px}
+.nav .act{background:none;border:0;color:#fff;font-size:14px;padding:4px 6px;opacity:.9}
+.body{flex:1;overflow:auto;padding:16px}
+.foot{padding:12px 16px;border-top:1px solid var(--line);flex:none;background:#fff}
+.tabbar{display:flex;border-top:1px solid var(--line);flex:none;background:#fff}
+.tabbar button{flex:1;border:0;background:none;padding:9px 0 8px;color:#999;font-size:12px}
+.tabbar button b{display:block;font-size:19px;line-height:1.1;font-weight:400}
+.tabbar button.on{color:var(--ink)}
+.btn{display:block;width:100%;border:0;border-radius:10px;padding:13px;background:var(--dark);color:#fff;font-weight:600;font-size:15px}
+.btn.sec{background:var(--soft);color:var(--ink);border:1px solid var(--line)}
+.btn.sm{display:inline-block;width:auto;padding:8px 14px;font-size:14px}
+.btn:disabled{opacity:.4;cursor:default}
+.row{display:flex;gap:10px;align-items:center}
+.row>*{flex:1}
+.gap{margin-top:12px}
+.card{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;background:#fff}
+.card.tap{cursor:pointer}
+.card.tap:hover{background:var(--soft)}
+label.f{display:block;font-size:12px;color:var(--mute);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+input[type=text],input[type=password],input[type=number],input[type=date],select,textarea{width:100%;padding:11px 12px;border:1px solid #d6d6d6;border-radius:10px;font:inherit;background:#fff}
+input:disabled,select:disabled,textarea:disabled{background:var(--soft);color:#555}
+textarea{min-height:84px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--soft);border-radius:10px;padding:10px 14px;color:#000}
+.chip.on{background:var(--hi);color:#fff;border-color:var(--hi)}
+.chip:disabled{background:#eee;color:#ccc;cursor:not-allowed}
+.chip.p1.on{background:var(--p1);border-color:var(--p1)}.chip.p2.on{background:var(--p2);border-color:var(--p2)}
+.chip.p3.on{background:var(--p3);border-color:var(--p3);color:#222}.chip.p4.on{background:var(--p4);border-color:var(--p4)}
+.av{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;flex:none;font-size:15px}
+.av.lg{width:64px;height:64px;font-size:22px}
+.name{font-weight:600}
+.sub{color:var(--mute);font-size:13px}
+.pill{display:inline-block;border-radius:20px;padding:2px 9px;font-size:12px;background:var(--soft);border:1px solid var(--line);color:#444}
+.pill.s1{background:#fff4e0;border-color:#f3d9a4}.pill.s2{background:#e6f0fb;border-color:#b9d4f1}.pill.s3{background:#e5f5ea;border-color:#b6dec3}
+.pri{display:inline-block;min-width:26px;text-align:center;border-radius:6px;padding:1px 6px;font-size:12px;font-weight:700;color:#fff}
+.pri.p1{background:var(--p1)}.pri.p2{background:var(--p2)}.pri.p3{background:var(--p3);color:#222}.pri.p4{background:var(--p4)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);background:var(--dark);color:#fff;flex:none}
+.stats div{padding:8px 4px 10px;text-align:center;border-bottom:3px solid transparent;color:#bbb;cursor:default}
+.stats.click div{cursor:pointer}
+.stats div.on{color:#fff;border-bottom-color:#fff}
+.stats b{display:block;font-size:20px}
+.stats span{font-size:11px}
+.hdr{display:flex;gap:12px;align-items:center}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kv div{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.kv small{display:block;color:var(--mute);font-size:11px;text-transform:uppercase}
+.sec-t{font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px}
+.q{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.q .t{flex:1}
+.q button{border:1px solid var(--line);background:var(--soft);border-radius:8px;padding:8px 16px}
+.q button.on{background:var(--hi);color:#fff}
+.steps{display:flex;gap:4px;padding:10px 16px 0}
+.steps i{flex:1;height:4px;border-radius:2px;background:#ddd}
+.steps i.on{background:var(--dark)}
+.center{text-align:center}
+.big{font-size:26px;font-weight:700}
+.cam{height:280px;border-radius:14px;background:#2a2d31;display:flex;align-items:center;justify-content:center;color:#aaa;position:relative;overflow:hidden}
+.cam .sil{width:120px;height:150px;border:3px dashed #666;border-radius:60px 60px 40px 40px}
+.cam .shot{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#3b4048;color:#fff;font-size:15px;flex-direction:column;gap:8px}
+.bars{height:3px;background:#444;position:absolute;left:0;right:0;top:0;animation:scan 2s linear infinite}
+@keyframes scan{from{top:0}to{top:100%}}
+.toast{position:absolute;left:12px;right:12px;top:12px;padding:12px 14px;border-radius:10px;color:#fff;background:var(--err);z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.3);animation:in .2s}
+.toast.ok{background:var(--ok)}
+@keyframes in{from{transform:translateY(-14px);opacity:0}}
+.modal{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;z-index:15}
+.modal .sheet{background:#fff;width:100%;border-radius:18px 18px 0 0;padding:16px;max-height:80%;overflow:auto}
+.modal.mid{align-items:center;justify-content:center;padding:20px}.modal.mid .sheet{border-radius:16px}
+.search{padding:8px 12px;background:var(--dark);flex:none}
+.search input{background:#fff}
+.map{width:100%;border:1px solid var(--line);border-radius:12px;background:#fafafa}
+.room{cursor:pointer}.room rect{fill:#f1f2f4;stroke:#aaa}.room.on rect{fill:#dfe9f7;stroke:var(--blue);stroke-width:2}
+.room text{font-size:11px;fill:#333;pointer-events:none}
+.dot{fill:var(--blue)}.dotn{fill:#fff;font-size:11px;font-weight:700;text-anchor:middle;pointer-events:none}
+.new{display:inline-block;background:var(--p1);color:#fff;font-size:10px;border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:middle}
+.empty{color:var(--mute);text-align:center;padding:30px 0}
+.bubble{background:var(--soft);border-radius:12px;padding:8px 12px;margin:6px 0;max-width:85%}
+.bubble.me{background:#e6f0fb;margin-left:auto}
+.hint{font-size:12px;color:var(--mute)}
+.note{font-size:12px;background:#fffbe6;border:1px solid #f1e4a3;border-radius:8px;padding:8px 10px;margin-top:12px;color:#665}
+.sw{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.sw button{flex:1;border:0;background:#eee;padding:10px}
+.sw button.on{background:#000;color:#fff}
+.pen{color:var(--blue);font-size:13px;background:none;border:0;padding:0}
+
+.tabs{display:flex;overflow-x:auto;background:var(--dark);flex:none}
+.tabs button{flex:none;background:none;border:0;color:#aaa;padding:10px 14px;font-size:12px;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid transparent}
+.tabs button.on{color:#fff;border-bottom-color:#fff}
+.mini{display:flex;gap:12px;align-items:center;padding:10px 14px;background:var(--dark);color:#fff;flex:none}
+.mini .sub{color:#bbb}
+.carousel{display:flex;gap:12px;overflow-x:auto;padding:10px 12px;background:var(--dark);flex:none}
+.carousel .c{flex:none;text-align:center;color:#bbb;font-size:12px;cursor:pointer;width:64px}
+.carousel .c.on{color:#fff}
+.carousel .av{margin:0 auto 4px;outline:2px solid transparent;outline-offset:2px}
+.carousel .c.on .av{outline-color:#fff}
+.acc{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.acc .h{display:flex;align-items:center;gap:8px;padding:12px}
+.acc .h .t{flex:1;font-weight:600}
+.acc .b{padding:0 12px 12px;border-top:1px solid var(--line);padding-top:10px;white-space:pre-wrap}
+.tl{position:relative;padding-left:16px;border-left:2px solid var(--line);margin-left:6px}
+.tl .card{position:relative}
+.tl .card:before{content:"";position:absolute;left:-24px;top:16px;width:10px;height:10px;border-radius:50%;background:var(--hi)}
+.tile b{font-size:26px;display:block}
+.bubble .t{font-size:11px;color:var(--mute)}
+.rec{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:8px;cursor:pointer}
+.rec.on{background:#e6f0fb;border-color:#b9d4f1}
+.menu{display:flex;align-items:center;gap:10px}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>ED Triage &amp; Consultation — prototype</h1>
+  <div class="seg" id="appSwitch">
+    <button data-app="patient">Patient kiosk (iPad)</button>
+    <button data-app="doctor">Doctor app (iPhone)</button>
+  </div>
+  <label class="hint"><input type="checkbox" id="assisted"> Assisted flow (adds area allocation + QR link to a doctor, as on iPhone)</label>
+  <span class="sp"></span>
+  <button class="lnk" id="resetBtn">Reset mock data</button>
+</div>
+<div class="stage"><div id="device" class="device"></div></div>
+
+<script>
+/* ============================================================
+   Mock "backend": seed data derived from the Laravel seeders,
+   plus a few realistic made-up patients/complaints/posts.
+   ============================================================ */
+const LS_KEY = 'ed-triage-proto-v2';
+const store = {
+  get(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)); }catch(e){ return null; } },
+  set(v){ try{ localStorage.setItem(LS_KEY, JSON.stringify(v)); }catch(e){} },
+  clear(){ try{ localStorage.removeItem(LS_KEY); }catch(e){} }
+};
+
+// Static lookups (from seeders)
+const LOOKUP = {
+  genders:[{id:1,name:'male'},{id:2,name:'female'}],
+  priorities:[{id:1,name:'P1'},{id:2,name:'P2'},{id:3,name:'P3'},{id:4,name:'P4'}],
+  areas:[ // area_of_coverages (patient placement)
+    {id:1,name:'Ambulatory'},{id:2,name:'Fast Track'},{id:3,name:'Trolley'},{id:4,name:'Resuscitation'},
+    {id:5,name:'Observation'},{id:6,name:'Isolation'},{id:7,name:'Procedure'}],
+  doctorAreas:[ // area_of_coverages_doctor (where a staff member works)
+    {id:1,name:'Triage'},{id:2,name:'Ambulatory'},{id:3,name:'Fast Track'},{id:4,name:'Trolley'},
+    {id:5,name:'Resuscitation'},{id:6,name:'Observation'},{id:7,name:'Isolation'},{id:8,name:'Procedure'}],
+  doctorTypes:[{id:1,name:'Junior Doctor'},{id:2,name:'Senior Doctor'},{id:3,name:'Nurse'}],
+  questions:[
+    {id:1,text:'Do you have any travel history to the Middle East in the past 14 days?'},
+    {id:2,text:'Did you come into contact with someone who has Middle East Respiratory Syndrome (MERS)?'},
+    {id:3,text:'Do you have fever?'},
+    {id:4,text:'Do you have any cough or shortness of breath?'}],
+  historyStatuses:[{id:1,name:'Pending Consult'},{id:2,name:'In Consult'},{id:3,name:'Seen'}],
+  bedClasses:['A1','B1','B2','C'],
+  disciplines:['Burns','Cardiothoracic Surgery','Cardiology','Dental','Endocrinology','Gastroenterology and Hepatology','General Surgery','Gynaecology','Haematology','Hand Surgery','Internal Medicine','Internal Medicine (AMW)','Neonatology','Neurology','Neurology (Stroke)','Neurosurgery','Oncology','Ophthalmology','Orthopaedic Surgery','Otolaryngology','Plastic Surgery','Psychiatry','Renal Medicine','Respiratory Medicine','Rheumatology','Urology'],
+  rooms:[{id:1,name:'Waiting Area'},{id:2,name:'Registration Counter'},{id:3,name:'Room 1'},{id:4,name:'Room 2'},{id:5,name:'Room 3'},{id:6,name:'Triage'}],
+  // seeded complaint is a placeholder ("oh god it hurts"); these are invented for the demo
+  complaints:[{id:1,name:'Chest pain'},{id:2,name:'Shortness of breath'},{id:3,name:'Abdominal pain'},{id:4,name:'Fever'},{id:5,name:'Laceration'},{id:6,name:'Headache'},{id:7,name:'Fall / injury'},{id:8,name:'Dizziness'}],
+  rolesByType:{1:['junior','locum','half shift'],2:['senior','step-down','locum','half shift'],3:['area in charge','regular','area triage','area changes']},
+  shifts:['6am','8am','10am','2pm','6pm','10pm'], // labels not in the repo (storyboard only) — assumed
+  durationUnits:['seconds','minutes','hours','days','weeks','months','years'],
+  durationSecs:{seconds:1,minutes:60,hours:3600,days:86400,weeks:604800,months:2592000,years:31536000}
+};
+// Triage priority -> permitted areas, as hard-coded in TriageDetailVC.isDisableArea
+const AREA_RULES = {1:[2,3,4,6], 2:[1,2,3,5,6,7], 3:[1,2,6,7], 4:[1,2,7]};
+
+const now = Date.now(), min = 60000;
+// Adds triage notes, consult notes, prior history and the task model (ids = user ids; 99 = whoever logs in)
+function augment(db){
+  const by=n=>db.patients.find(p=>p.nric===n);
+  const H='City General Hospital';
+  const T=(id,subject,message,status,creator,recipients,msgs)=>({id,subject,message,status,creator,recipients,created:msgs[0].at,messages:msgs});
+  const a=by('S8012345A'); a.visit.notes={mode:'Walk-in',referredBy:'Self',complaints:'Fever, body aches',comments:'Febrile for 2 days. No rash. Tolerating fluids.'};
+  a.visit.consult={history:'2-day history of fever and myalgia. No sick contacts. No travel.',exam:'',plan:''};
+  a.prior=[{doctor:4,hospital:H,area:'Ambulatory',status:'Seen',diagnosis:'Upper respiratory tract infection',created:now-200*24*60*min}];
+  const b=by('S7511223B'); b.visit.notes={mode:'Ambulance',referredBy:'Polyclinic (Bishan)',complaints:'Shortness of breath',comments:'Known asthmatic. Nebulised en route.'};
+  b.prior=[{doctor:1,hospital:H,area:'Resuscitation',status:'Seen',diagnosis:'Acute asthma exacerbation',created:now-400*24*60*min},{doctor:2,hospital:H,area:'Fast Track',status:'Seen',diagnosis:'Viral bronchitis',created:now-700*24*60*min}];
+  b.visit.tasks=[T(1,'Chest X-ray','Portable CXR please','Pending',1,[99,2],[{from:1,text:'Portable CXR please',at:now-15*min},{from:2,text:'On my way with the portable unit.',at:now-10*min}])];
+  const c=by('S9203456C'); c.visit.notes={mode:'Walk-in',referredBy:'',complaints:'Forearm laceration',comments:'Tetanus status unknown.'}; c.prior=[];
+  const d=by('S6805567D'); d.visit.notes={mode:'Walk-in',referredBy:'Self',complaints:'Chest pain',comments:'Pain started 90 minutes ago while climbing stairs.'};
+  d.visit.consult={history:'Central crushing chest pain radiating to left arm, diaphoretic. Hypertensive, ex-smoker.',exam:'HR 102, BP 165/100. Heart sounds normal, chest clear.',plan:'ECG, serial troponin, aspirin allergy noted - use alternative. Cardiology review.'};
+  d.prior=[{doctor:7,hospital:H,area:'Observation',status:'Seen',diagnosis:'Hypertension, medication adjusted',created:now-90*24*60*min}];
+  d.visit.tasks=[T(2,'12-lead ECG','STAT','Completed',99,[2],[{from:99,text:'STAT',at:now-60*min},{from:2,text:'Done - ST depression V4-V6.',at:now-52*min}]),
+                 T(3,'Troponin','Serial x2','New',4,[99],[{from:4,text:'Serial x2, 3 hours apart please.',at:now-30*min}])];
+  const e=by('S5509988E'); e.visit.notes={mode:'Walk-in',referredBy:'GP',complaints:'Abdominal pain',comments:''}; e.prior=[];
+  const f=by('S0001122F'); f.visit.notes={mode:'Walk-in',referredBy:'',complaints:'Headache',comments:'Photophobia, nausea.'}; f.prior=[{doctor:3,hospital:H,area:'Ambulatory',status:'Seen',diagnosis:'Tension headache',created:now-300*24*60*min}];
+}
+function seed(){
+  const v = (o)=>Object.assign({trolley:false,tasks:[],diagnosis:null,triage:null,vitals:null,qa:{},room:1,attending:null,qr:null,notes:{mode:'Walk-in',referredBy:'',complaints:'',comments:''},consult:{history:'',exam:'',plan:''}},o);
+  const db = {
+    nextVisit:100,
+    patients:[
+      {nric:'S8012345A',first:'Max',last:'Patternman',gender:1,dob:'1980-09-03',pob:'Singapore',address:'12 Orchard Road\n#05-01',allergies:'Allergic to cabbage',
+       visit:v({id:1,status:1,arrived:now-34*min,room:1,qa:{1:2,2:2,3:1,4:2},vitals:{temp:38,bpS:128,bpD:84,hr:96,pain:5,rr:18,o2:97},
+         triage:{complaint:4,priority:3,area:1,dur:172800,comment:'Fever for 2 days, no rash.',mode:'Walk-in',flags:''}})},
+      {nric:'S7511223B',first:'Aisha',last:'Rahman',gender:2,dob:'1975-11-22',pob:'Malaysia',address:'88 Bishan St 12\n#10-221',allergies:'Penicillin',
+       visit:v({id:2,status:1,arrived:now-21*min,room:2,qa:{1:2,2:2,3:2,4:1},vitals:{temp:37,bpS:150,bpD:95,hr:110,pain:8,rr:24,o2:92},
+         triage:{complaint:2,priority:1,area:4,dur:7200,comment:'Acute breathlessness, speaking in short sentences.',mode:'Ambulance',flags:'Respiratory isolation consider'},
+         tasks:[{id:1,subject:'Chest X-ray',message:'Portable CXR please',status:'open',messages:[{from:'Dr Lee',text:'Requested.'}]}]})},
+      {nric:'S9203456C',first:'Daniel',last:'Ong',gender:1,dob:'1992-03-14',pob:'Singapore',address:'3 Clementi Ave 2\n#02-12',allergies:'None known',
+       visit:v({id:3,status:2,arrived:now-52*min,room:3,qa:{1:2,2:2,3:2,4:2},vitals:{temp:37,bpS:118,bpD:76,hr:82,pain:6,rr:16,o2:99},
+         triage:{complaint:5,priority:4,area:7,dur:3600,comment:'Forearm laceration from kitchen knife.',mode:'Walk-in',flags:''},attending:1})},
+      {nric:'S6805567D',first:'Grace',last:'Tan',gender:2,dob:'1968-05-30',pob:'Singapore',address:'45 Toa Payoh Lor 1\n#08-33',allergies:'Aspirin',
+       visit:v({id:4,status:2,arrived:now-70*min,room:4,trolley:true,qa:{1:2,2:2,3:2,4:2},vitals:{temp:37,bpS:165,bpD:100,hr:102,pain:9,rr:20,o2:96},
+         triage:{complaint:1,priority:2,area:3,dur:5400,comment:'Central chest pain radiating to left arm.',mode:'Walk-in',flags:''},
+         tasks:[{id:2,subject:'12-lead ECG',message:'STAT',status:'done',messages:[]},{id:3,subject:'Troponin',message:'Serial x2',status:'open',messages:[]}]})},
+      {nric:'S5509988E',first:'Kumar',last:'Selvam',gender:1,dob:'1955-09-09',pob:'India',address:'7 Jurong East St 21\n#14-02',allergies:'None known',
+       visit:v({id:5,status:3,arrived:now-180*min,room:5,qa:{1:2,2:2,3:2,4:2},vitals:{temp:36,bpS:122,bpD:80,hr:74,pain:3,rr:16,o2:98},
+         triage:{complaint:3,priority:3,area:1,dur:86400,comment:'Epigastric pain after meals.',mode:'Walk-in',flags:''},
+         diagnosis:{text:'Gastritis',status:3,follow:'GP review in 1 week',medication:'Omeprazole 20mg OD',leave:'1 day',discipline:null,bedClass:null,cost:0,days:0}})},
+      {nric:'S0001122F',first:'Mei',last:'Lin',gender:2,dob:'2000-01-11',pob:'Singapore',address:'19 Tampines St 11\n#03-45',allergies:'None known',
+       visit:v({id:6,status:3,arrived:now-240*min,room:5,qa:{1:2,2:2,3:2,4:2},vitals:{temp:37,bpS:110,bpD:70,hr:88,pain:2,rr:14,o2:99},
+         triage:{complaint:6,priority:4,area:1,dur:21600,comment:'Migraine, photophobia.',mode:'Walk-in',flags:''},
+         diagnosis:{text:'Migraine',status:2,follow:'',medication:'',leave:'',discipline:'Neurology',bedClass:'B2',cost:2400,days:2}})}
+    ],
+    teams:[
+      {id:1,name:'Cardiology'},{id:2,name:'ER'},{id:3,name:'ICU'},{id:4,name:'Neurology'},{id:5,name:'Maternity Ward'},{id:6,name:'Oncology'}],
+    doctors:[
+      {id:1,title:'Dr',first:'Wei Ming',last:'Tan',type:2,role:'senior',team:2,area:3,shift:'6am'},
+      {id:2,title:'Dr',first:'Priya',last:'Nair',type:1,role:'junior',team:2,area:2,shift:'8am'},
+      {id:3,title:'Dr',first:'Jason',last:'Lee',type:1,role:'locum',team:2,area:1,shift:'2pm'},
+      {id:4,title:'Dr',first:'Sarah',last:'Koh',type:2,role:'step-down',team:2,area:5,shift:'6am'},
+      {id:5,title:'Dr',first:'Omar',last:'Hassan',type:1,role:'junior',team:2,area:2,shift:'10am'},
+      {id:6,title:'Nurse',first:'Linda',last:'Chua',type:3,role:'area in charge',team:2,area:1,shift:'6am'},
+      {id:7,title:'Dr',first:'Helen',last:'Yap',type:2,role:'senior',team:1,area:3,shift:'8am'}],
+    board:[
+      {id:1,title:'MERS screening reminder',text:'All patients with Middle East travel history in the last 14 days must be isolated and escalated to the senior on duty. Please make sure screening questions are answered before triage is finalised.',created:now-26*60*min,seen:false},
+      {id:2,title:'Resus bay 2 maintenance',text:'Resuscitation bay 2 will be offline from 2pm to 4pm for equipment servicing. Route P1 patients to bay 1 or Trolley area during this time.',created:now-52*60*min,seen:true}],
+    me:null, // logged-in doctor
+    beaconPings:0
+  };
+  augment(db);
+  return db;
+}
+let DB = store.get() || seed();
+const save = ()=>store.set(DB);
+
+/* ---------------- helpers ---------------- */
+const $ = (s,r=document)=>r.querySelector(s);
+const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const find = (arr,id)=>arr.find(x=>x.id===id);
+const fullName = p=>`${p.first} ${p.last}`;
+const genderName = p=>(find(LOOKUP.genders,p.gender)||{name:''}).name;
+const cap = s=>s.charAt(0).toUpperCase()+s.slice(1);
+function age(dob){ if(!dob) return -1; const d=new Date(dob), n=new Date(); let a=n.getFullYear()-d.getFullYear(); const m=n.getMonth()-d.getMonth(); if(m<0||(m===0&&n.getDate()<d.getDate())) a--; return a; }
+const colors=['#5b6b8c','#8c5b6b','#5b8c72','#8c7a5b','#6b5b8c','#5b848c'];
+function avatar(p,cls=''){ const i=(p.first[0]+p.last[0]).toUpperCase(); const c=colors[(p.first.charCodeAt(0)+p.last.charCodeAt(0))%colors.length]; return `<div class="av ${cls}" style="background:${c}">${esc(i)}</div>`; }
+// mirrors Utility.getDurationText (simplified: largest exact unit)
+function durText(sec){
+  if(!sec) return 'N/A';
+  const u=[['years',31536000],['months',2592000],['weeks',604800],['days',86400],['hours',3600],['minutes',60],['seconds',1]];
+  for(const [n,s] of u){ if(sec>=s && sec%s===0) return `${sec/s} ${n}`; }
+  for(const [n,s] of u){ if(sec>=s) return `${Math.floor(sec/s)} ${n}`; }
+  return 'N/A';
+}
+const statusName = id=>find(LOOKUP.historyStatuses,id).name;
+const priName = id=>id?find(LOOKUP.priorities,id).name:'';
+const areaName = id=>id?find(LOOKUP.areas,id).name:'No Area';
+function fmtDate(ts){ const d=new Date(ts); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' | '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+function docName(id){ const d=DB.doctors.find(x=>x.id===id); return d?`${d.title} ${d.first} ${d.last}`:'Unknown'; }
+const taskStatus = k=>cap(k.status||'Pending');
+function fmtTime(ts){ return new Date(ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+function patientByNric(n){ return DB.patients.find(p=>p.nric.toLowerCase()===String(n).trim().toLowerCase()); }
+function stats(list){
+  const pending=list.filter(p=>p.visit&&p.visit.status===1), prog=list.filter(p=>p.visit&&p.visit.status===2), seen=list.filter(p=>p.visit&&p.visit.status===3);
+  const wait = pending.length? Math.round(Math.max(...pending.map(p=>(Date.now()-p.visit.arrived)/min))):0;
+  return {pending:pending.length,prog:prog.length,seen:seen.length,wait};
+}
+
+/* ---------------- tiny UI kit ---------------- */
+let toastTimer;
+function toast(msg,ok){
+  const dev=$('#device'); const old=$('.toast',dev); if(old) old.remove();
+  const t=document.createElement('div'); t.className='toast'+(ok?' ok':''); t.textContent=msg; dev.appendChild(t);
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.remove(),2600);
+}
+function openModal(html,mid){
+  closeModal();
+  const m=document.createElement('div'); m.className='modal'+(mid?' mid':''); m.id='modal';
+  m.innerHTML=`<div class="sheet">${html}</div>`;
+  m.addEventListener('click',e=>{ if(e.target===m) closeModal(); });
+  $('#device').appendChild(m); return m;
+}
+function closeModal(){ const m=$('#modal'); if(m) m.remove(); }
+const nav=(title,{back,right}={})=>`<div class="nav">${back?`<button class="back" data-a="${back}">‹</button>`:''}<h2>${title}</h2>${right||''}</div>`;
+
+/* ============================================================
+   PATIENT KIOSK APP  (PatientFace → ScanID → Profile → Questions → Vitals → [Allocation] → QR)
+   ============================================================ */
+let P;
+function resetPatient(){ P={step:'welcome',photo:false,nric:'',existing:false,editing:false,prof:{first:'',last:'',gender:'',dob:'',pob:'',address:'',address2:''},answers:{},trolley:false,vitals:{temp:'',bp:'',hr:'',pain:'',rr:'',o2:''},area:null,visitId:null,scanned:false}; }
+resetPatient();
+const PSTEPS=['welcome','face','scan','profile','questions','vitals','allocation','qr'];
+function pStepsBar(){
+  const order = assisted()? PSTEPS : PSTEPS.filter(s=>s!=='allocation');
+  const i=order.indexOf(P.step);
+  return `<div class="steps">${order.slice(1).map((s,k)=>`<i class="${k<i?'on':''}"></i>`).join('')}</div>`;
+}
+const assisted = ()=>$('#assisted').checked;
+
+function patientHeader(){
+  const p = patientByNric(P.nric);
+  const nm = `${P.prof.first} ${P.prof.last}`.trim()||'New patient';
+  const g = P.prof.gender?cap(P.prof.gender):'';
+  const pseudo={first:P.prof.first||'N',last:P.prof.last||'P'};
+  return `<div class="hdr card">${avatar(pseudo,'lg')}<div><div class="name">${esc(nm)}</div><div class="sub">ID: ${esc(P.nric)}</div><div class="sub">${esc(g)}${P.prof.dob?` | ${age(P.prof.dob)} years`:''}</div></div></div>`;
+}
+
+function renderPatient(){
+  let h='';
+  switch(P.step){
+  case 'welcome':
+    h=`${nav('Self triage')}<div class="body center" style="display:flex;flex-direction:column;justify-content:center;align-items:center;gap:14px">
+      <div class="big">Welcome</div>
+      <div class="sub" style="max-width:420px">Register yourself in 3 minutes: take a photo, scan your ID, confirm your details, answer a few screening questions and enter your vital signs. A doctor will see you shortly.</div>
+      <button class="btn" style="max-width:320px" data-a="p-start">Start registration</button>
+      <div class="hint">Mock of the iPad "selfTriage" screen. The app silently logs in as the shared "self" user here.</div></div>`;
+    break;
+  case 'face':
+    h=`${nav('Patient photo',{back:'p-back'})}${pStepsBar()}<div class="body">
+      <div class="cam">${P.photo?`<div class="shot"><div style="font-size:42px">📷✓</div>Photo captured</div>`:`<div class="sil"></div><div class="bars"></div>`}</div>
+      <div class="row gap"><button class="btn sec" data-a="p-photo">${P.photo?'Retake':'Take photo'}</button></div>
+      <div class="hint gap">Mock camera. The real app uses AVCapture and uploads the JPEG to <code>POST /patient/{nric}/photo</code> after the ID scan.</div></div>
+      <div class="foot"><button class="btn" data-a="p-face-next">Next</button></div>`;
+    break;
+  case 'scan':
+    h=`${nav('Scan your ID',{back:'p-back'})}${pStepsBar()}<div class="body">
+      <div class="cam">${P.scanned?`<div class="shot"><div style="font-size:42px">▮▯▮▮▯</div>Code read: <b>${esc(P.nric)}</b></div>`:`<div style="width:70%;height:90px;border:3px solid #888;border-radius:8px"></div><div class="bars"></div>`}</div>
+      <div class="row gap"><button class="btn sec" data-a="p-scan-existing">Simulate scan (existing patient)</button><button class="btn sec" data-a="p-scan-new">Simulate scan (new patient)</button></div>
+      <label class="f">Or type ID manually</label><div class="row"><input type="text" id="nricIn" placeholder="e.g. S8012345A" value="${esc(P.nric)}"><button class="btn sm" style="flex:none" data-a="p-scan-manual">Use</button></div>
+      <div class="hint gap">Accepts EAN-8/13 and PDF417 barcodes in the real app. Existing IDs: ${DB.patients.map(p=>p.nric).join(', ')}</div></div>
+      <div class="foot"><button class="btn" data-a="p-scan-next">Next</button></div>`;
+    break;
+  case 'profile': {
+    const ro = P.existing && !P.editing;
+    h=`${nav('Your details',{back:'p-back',right:P.existing&&ro?`<button class="act" data-a="p-edit">Edit</button>`:''})}${pStepsBar()}<div class="body">
+      <div class="note" style="margin-top:0">${P.existing?'Found an existing record for this ID — details are pre-filled.':'New patient — please fill in your details.'}</div>
+      <label class="f">First name</label><input type="text" data-b="first" value="${esc(P.prof.first)}" ${ro?'disabled':''}>
+      <label class="f">Last name</label><input type="text" data-b="last" value="${esc(P.prof.last)}" ${ro?'disabled':''}>
+      <div class="row"><div><label class="f">Date of birth</label><input type="date" data-b="dob" value="${esc(P.prof.dob)}" ${ro?'disabled':''}></div>
+      <div><label class="f">Gender</label><select data-b="gender" ${ro?'disabled':''}><option value="">Select</option>${['male','female'].map(g=>`<option value="${g}" ${P.prof.gender===g?'selected':''}>${cap(g)}</option>`).join('')}</select></div></div>
+      <label class="f">NRIC / ID</label><input type="text" value="${esc(P.nric)}" disabled>
+      <label class="f">Place of birth (country)</label><input type="text" data-b="pob" value="${esc(P.prof.pob)}" ${ro?'disabled':''}>
+      <label class="f">Address</label><input type="text" data-b="address" value="${esc(P.prof.address)}" ${ro?'disabled':''}>
+      <label class="f">Address line 2</label><input type="text" data-b="address2" value="${esc(P.prof.address2)}" ${ro?'disabled':''}></div>
+      <div class="foot"><button class="btn" data-a="p-profile-next">Confirm &amp; continue</button></div>`;
+    break; }
+  case 'questions':
+    h=`${nav('Screening',{back:'p-back'})}${pStepsBar()}<div class="body">${patientHeader()}
+      ${LOOKUP.questions.map((q,i)=>`<div class="q"><div class="t"><div class="sub">Question ${i+1}</div>${esc(q.text)}</div>
+        <button class="${P.answers[q.id]===1?'on':''}" data-a="p-ans" data-q="${q.id}" data-v="1">Yes</button>
+        <button class="${P.answers[q.id]===2?'on':''}" data-a="p-ans" data-q="${q.id}" data-v="2">No</button></div>`).join('')}
+      <button class="btn sec ${P.trolley?'':''}" data-a="p-trolley">${P.trolley?'✓ Trolley requested':'I need a trolley'}</button></div>
+      <div class="foot"><button class="btn" data-a="p-q-next">Next</button></div>`;
+    break;
+  case 'vitals': {
+    const f=(k,l,ph)=>`<div><label class="f">${l}</label><input type="text" inputmode="decimal" data-v="${k}" placeholder="${ph}" value="${esc(P.vitals[k])}"></div>`;
+    h=`${nav('Vital signs',{back:'p-back',right:`<button class="act" data-a="p-getvitals">Get from device</button>`})}${pStepsBar()}<div class="body">${patientHeader()}
+      <div class="row">${f('temp','Temperature (°C)','37')}${f('bp','Blood pressure','120/80')}</div>
+      <div class="row">${f('hr','Heart rate (bpm)','80')}${f('pain','Pain (0–10)','0')}</div>
+      <div class="row">${f('rr','Respiratory rate','16')}${f('o2','Oxygen level (%)','98')}</div>
+      <div class="hint gap">"Get from device" mimics reading a connected vital-signs monitor (<code>GET /history/{id}/vitalSigns</code>).</div></div>
+      <div class="foot"><button class="btn" data-a="p-vitals-next">Submit</button></div>`;
+    break; }
+  case 'allocation':
+    h=`${nav('Allocation',{back:'p-back'})}${pStepsBar()}<div class="body">${patientHeader()}
+      <div class="sec-t">Choose area of coverage</div>
+      <div class="chips">${LOOKUP.areas.map(a=>`<button class="chip ${P.area===a.id?'on':''}" data-a="p-area" data-id="${a.id}" style="min-width:46%">${a.name}</button>`).join('')}</div></div>
+      <div class="foot"><button class="btn" data-a="p-alloc-next">Next</button></div>`;
+    break;
+  case 'qr': {
+    const done = !assisted() || P.scanned;
+    h=`${nav(assisted()?'Link to doctor':'Registered',{back:assisted()?'p-back':''})}${pStepsBar()}<div class="body center">${patientHeader()}
+      ${assisted()
+        ? `<div class="cam" style="height:200px">${P.scanned?`<div class="shot"><div style="font-size:40px">▦</div>Doctor code read</div>`:`<div style="width:160px;height:160px;border:3px solid #888;border-radius:8px"></div><div class="bars"></div>`}</div>
+           <button class="btn sec gap" data-a="p-qr-scan">Simulate scan of doctor's QR code</button>
+           <div class="hint gap">Sets <code>attending_doctor_user_id</code>, <code>qr_string</code> and <code>status_id=1</code> on the visit.</div>`
+        : `<div class="big gap">You're registered ✓</div><div class="sub">Queue number <b>#${P.visitId}</b>. Please wait in the waiting area; a team member will call you.</div>`}
+      </div><div class="foot"><button class="btn" data-a="p-done" ${assisted()&&!done?'disabled':''}>Done</button></div>`;
+    break; }
+  }
+  $('#device').className='device tablet';
+  $('#device').innerHTML=h;
+}
+
+/* patient actions */
+function createVisit(){
+  let p = patientByNric(P.nric);
+  const prof=P.prof;
+  const addr=[prof.address,prof.address2].filter(Boolean).join('\n');
+  if(!p){
+    p={nric:P.nric,first:prof.first,last:prof.last,gender:LOOKUP.genders.find(g=>g.name===prof.gender).id,dob:prof.dob,pob:prof.pob,address:addr,allergies:'',visit:null};
+    DB.patients.push(p);
+  } else {
+    Object.assign(p,{first:prof.first,last:prof.last,gender:LOOKUP.genders.find(g=>g.name===prof.gender).id,dob:prof.dob,pob:prof.pob,address:addr});
+  }
+  const [s,d]=(P.vitals.bp.split('/').map(x=>parseInt(x,10)||0));
+  p.prior=p.prior||[];
+  if(p.visit){ p.prior.unshift({doctor:p.visit.attending,hospital:'City General Hospital',area:areaName(p.visit.triage&&p.visit.triage.area),status:statusName(p.visit.status),diagnosis:p.visit.diagnosis?p.visit.diagnosis.text:'',created:p.visit.arrived}); }
+  p.visit={id:DB.nextVisit++,status:1,notes:{mode:'Walk-in',referredBy:'Self',complaints:'',comments:''},consult:{history:'',exam:'',plan:''},arrived:Date.now(),room:2,trolley:P.trolley,qa:Object.assign({},P.answers),
+    vitals:{temp:parseFloat(P.vitals.temp)||0,bpS:s||0,bpD:d||0,hr:parseInt(P.vitals.hr)||0,pain:parseInt(P.vitals.pain)||0,rr:parseInt(P.vitals.rr)||0,o2:parseInt(P.vitals.o2)||0},
+    triage:null,diagnosis:null,tasks:[],attending:null,qr:null};
+  if(P.area){ p.visit.triage={complaint:null,priority:null,area:P.area,dur:0,comment:'',mode:'Walk-in',flags:''}; }
+  P.visitId=p.visit.id; save();
+}
+const pBack={face:'welcome',scan:'face',profile:'scan',questions:'profile',vitals:'questions',allocation:'vitals',qr:'allocation'};
+function patientAction(a,el){
+  switch(a){
+  case 'p-start': P.step='face'; break;
+  case 'p-back': { let t=pBack[P.step]; if(P.step==='qr'&&!assisted()) t='vitals'; P.step=t||'welcome'; break; }
+  case 'p-photo': P.photo = el.textContent.trim()!=='Retake'; break;
+  case 'p-face-next': if(!P.photo) return toast('Patient Photo is missing!'); P.step='scan'; break;
+  case 'p-scan-existing': { const p=DB.patients[Math.floor(Math.random()*DB.patients.length)]; P.nric=p.nric; P.scanned=true; break; }
+  case 'p-scan-new': P.nric='S'+Math.floor(1000000+Math.random()*8999999)+'Z'; P.scanned=true; break;
+  case 'p-scan-manual': { const v=$('#nricIn').value.trim(); if(!v) return toast('Please scan your ID!'); P.nric=v; P.scanned=true; break; }
+  case 'p-scan-next': {
+    if(!P.scanned||!P.nric) return toast('Please scan your ID!');
+    const p=patientByNric(P.nric);
+    P.existing=!!p; P.editing=false;
+    if(p){ P.nric=p.nric; const ad=p.address.split('\n'); P.prof={first:p.first,last:p.last,gender:genderName(p),dob:p.dob,pob:p.pob,address:ad[0]||'',address2:ad[1]||''}; }
+    else P.prof={first:'',last:'',gender:'',dob:'',pob:'',address:'',address2:''};
+    P.step='profile'; break; }
+  case 'p-edit': P.editing=true; break;
+  case 'p-profile-next': {
+    const x=P.prof;
+    if(!x.first) return toast('First name is missing!'); if(!x.last) return toast('Last name is missing!');
+    if(!x.dob) return toast('Date of birth is missing!'); if(!x.gender) return toast('Gender is missing!');
+    if(!x.pob) return toast('Place of birth is missing!'); if(!x.address) return toast('Address is missing!');
+    P.step='questions'; break; }
+  case 'p-ans': { const q=+el.dataset.q, v=+el.dataset.v; if(P.answers[q]===v) delete P.answers[q]; else P.answers[q]=v; break; }
+  case 'p-trolley': P.trolley=!P.trolley; break;
+  case 'p-q-next': if(Object.keys(P.answers).length!==LOOKUP.questions.length) return toast('You need to give answer of all questions!'); P.step='vitals'; break;
+  case 'p-getvitals': P.vitals={temp:(36.4+Math.random()*2).toFixed(1),bp:`${110+Math.floor(Math.random()*40)}/${70+Math.floor(Math.random()*25)}`,hr:String(68+Math.floor(Math.random()*40)),pain:String(Math.floor(Math.random()*8)),rr:String(14+Math.floor(Math.random()*8)),o2:String(94+Math.floor(Math.random()*6))}; break;
+  case 'p-vitals-next': {
+    const v=P.vitals; if(Object.values(v).some(x=>String(x).trim()==='')) return toast('Please fill in all vital signs!');
+    if(assisted()){ P.step='allocation'; } else { createVisit(); P.step='qr'; }
+    break; }
+  case 'p-area': P.area=+el.dataset.id; break;
+  case 'p-alloc-next': if(!P.area) return toast('Please select an area!'); createVisit(); P.step='qr'; break;
+  case 'p-qr-scan': P.scanned=true; { const p=patientByNric(P.nric); if(p&&p.visit){ p.visit.qr='QR-'+Math.random().toString(36).slice(2,8).toUpperCase(); p.visit.attending=1; p.visit.status=1; save(); } } break;
+  case 'p-done': toast('Registration complete',true); resetPatient(); break;
+  }
+  renderPatient();
+}
+function bindPatientInputs(e){
+  const t=e.target;
+  if(t.dataset.b) P.prof[t.dataset.b]=t.value;
+  if(t.dataset.v) P.vitals[t.dataset.v]=t.value;
+}
+
+/* ============================================================
+   DOCTOR APP  (Login → SelectRole → CoverageAndTime → ConsultSenior(team) → TabBar)
+   ============================================================ */
+let D; // {stack:[...], tab, teamSeg, search, ...}
+function resetDoctor(){ D={stack:[DB.me&&DB.me.team?{s:'main'}:{s:'login'}],tab:'patients',seg:0,search:'',searchOpen:false,boardOpen:null,roomSel:null,reg:{type:null,area:null,shift:null}}; }
+resetDoctor();
+const cur = ()=>D.stack[D.stack.length-1];
+const push = s=>D.stack.push(s);
+const pop = ()=>{ if(D.stack.length>1) D.stack.pop(); };
+const myTeam = ()=>DB.me&&DB.me.team;
+function allPatientsForView(){ return DB.patients.filter(p=>p.visit); }
+
+function patientRow(p,extra=''){
+  const v=p.visit, tri=v.triage;
+  return `<div class="card tap" data-a="d-open" data-n="${esc(p.nric)}"><div class="hdr">${avatar(p)}
+    <div style="flex:1;min-width:0"><div class="name">${esc(fullName(p))} ${tri&&tri.priority?`<span class="pri p${tri.priority}">${priName(tri.priority)}</span>`:''}</div>
+    <div class="sub">ID: ${esc(p.nric)}</div>
+    <div style="margin-top:4px"><span class="pill s${v.status}">${statusName(v.status)}</span> <span class="pill">${esc(tri&&tri.area?areaName(tri.area):'No Area')}</span> <span class="pill">📋 ${v.tasks.length}</span></div></div></div>${extra}</div>`;
+}
+
+function renderDoctor(){
+  const dev=$('#device'); dev.className='device phone';
+  const t=cur(); let h='';
+  switch(t.s){
+  case 'login':
+    h=`${nav('Login')}<div class="body" style="display:flex;flex-direction:column;justify-content:center">
+      <div class="big center" style="margin-bottom:18px">Welcome back</div>
+      <label class="f">Username</label><input type="text" id="lu" autocomplete="off" placeholder="fred">
+      <label class="f">Password</label><input type="password" id="lp" placeholder="test">
+      <button class="btn gap" data-a="d-login">Login</button>
+      <button class="btn sec gap" data-a="d-faceid">Login with Face ID</button>
+      <div class="note">Demo credentials from the test seeder: <b>fred</b> / <b>test</b>. The real app calls <code>POST /api/v1/get_token</code> and stores the returned token.</div></div>`;
+    break;
+  case 'role':
+    h=`${nav('Select your role',{back:'d-back'})}<div class="body"><div class="sec-t">I am a…</div>
+      <div class="chips">${LOOKUP.doctorTypes.map(x=>`<button class="chip ${D.reg.type===x.id?'on':''}" style="width:100%;padding:16px" data-a="d-role" data-id="${x.id}">${x.name}</button>`).join('')}</div>
+      <div class="hint gap">Each type has allowed sub-roles (e.g. Senior Doctor → senior / step-down / locum / half shift; Nurse → area in charge / regular / area triage / area changes).</div></div>`;
+    break;
+  case 'coverage':
+    h=`${nav('Coverage & shift',{back:'d-back'})}<div class="body"><div class="sec-t">Area of coverage</div>
+      <div class="chips">${LOOKUP.doctorAreas.map(a=>`<button class="chip ${D.reg.area===a.id?'on':''}" style="width:48%" data-a="d-cov" data-id="${a.id}">${a.name}</button>`).join('')}</div>
+      <div class="sec-t">Shift start time</div>
+      <div class="chips">${LOOKUP.shifts.map(s=>`<button class="chip ${D.reg.shift===s?'on':''}" style="width:30%" data-a="d-shift" data-s="${s}">${s}</button>`).join('')}</div></div>
+      <div class="foot"><button class="btn" data-a="d-cov-next">Next</button></div>`;
+    break;
+  case 'teams':
+    h=`${nav('Join a team',{back:'d-back',right:`<button class="act" data-a="d-newteam">+ New</button>`})}<div class="body">
+      ${DB.teams.map(tm=>{ const mem=DB.doctors.filter(d=>d.team===tm.id); const docs=mem.filter(d=>d.type!==3).length; const can=docs<4;
+        return `<button class="chip" style="width:100%;margin-bottom:10px;text-align:left;padding:16px;${can?'':'opacity:.5'}" ${can?'':'disabled'} data-a="d-jointeam" data-id="${tm.id}"><b>Team ${esc(tm.name)}</b><br><span class="sub">${mem.length} members${can?'':' · full (4 doctors)'}</span></button>`; }).join('')}
+      <div class="hint">Teams are capped at 4 doctors (<code>can_join</code>).</div></div>`;
+    break;
+  case 'assign': h=renderAssign(cur()); break;
+  case 'newteam':
+    h=`${nav('Create team',{back:'d-back'})}<div class="body"><label class="f">Team name</label><input type="text" id="tn" placeholder="e.g. Paediatrics" value="${esc(D.reg.teamName||'')}">
+      <label class="f">Area of coverage</label><div class="chips">${LOOKUP.doctorAreas.map(a=>`<button class="chip ${D.reg.teamArea===a.id?'on':''}" data-a="d-teamarea" data-id="${a.id}">${a.name}</button>`).join('')}</div></div>
+      <div class="foot"><button class="btn" data-a="d-createteam">Create</button></div>`;
+    break;
+  case 'main': h=renderMain(); break;
+  case 'detail': h=renderDetail(t); break;
+  case 'triage': h=renderTriage(t); break;
+  case 'dispose': h=renderDispose(t); break;
+  case 'tasks': h=renderTasks(t); break;
+  case 'newtask': h=renderTaskNew(t); break;
+  case 'mtriage': h=renderMoreTriage(t); break;
+  case 'screening': h=renderScreening(); break;
+  case 'analytics': h=renderAnalytics(); break;
+  case 'shell': h=`${nav(esc(t.title),{back:'d-back'})}<div class="body"><div class="empty">This screen is an empty shell in the source app (just a title and a back button).</div></div>`; break;
+  case 'task': h=renderTask(t); break;
+  }
+  dev.innerHTML=h;
+}
+
+function doctorTabs(){
+  const tabs=[['patients','👥','Patients'],['team','🩺','Team'],['map','🗺️','Map'],['board','📌','Board'],['more','⋯','More']];
+  return `<div class="tabbar">${tabs.map(([k,i,l])=>`<button class="${D.tab===k?'on':''}" data-a="d-tab" data-t="${k}"><b>${i}</b>${l}</button>`).join('')}</div>`;
+}
+function renderMain(){
+  let body='';
+  const me=DB.me;
+  if(D.tab==='patients'){
+    const all=allPatientsForView(); const st=stats(all);
+    const list=D.search?all.filter(p=>(p.first+' '+p.last).toLowerCase().includes(D.search.toLowerCase())):all;
+    const order={1:0,2:1,3:2}; list.sort((a,b)=>order[a.visit.status]-order[b.visit.status]||(a.visit.triage&&a.visit.triage.priority||9)-(b.visit.triage&&b.visit.triage.priority||9));
+    body=`${nav(`${esc(me.title)} ${esc(me.first)} ${esc(me.last)}`,{right:`<button class="act" data-a="d-searchtoggle">🔍</button>`})}
+      <div class="stats"><div><b>${st.pending}</b><span>Pending</span></div><div><b>${st.wait}</b><span>Waiting (min)</span></div><div><b>${st.prog}</b><span>In progress</span></div><div><b>${st.seen}</b><span>Seen</span></div></div>
+      ${D.searchOpen?`<div class="search"><input type="text" id="sq" placeholder="Search by name" value="${esc(D.search)}"></div>`:''}
+      <div class="body">${list.length?list.map(p=>patientRow(p)).join(''):'<div class="empty">No patients</div>'}</div>`;
+  } else if(D.tab==='team'){
+    const tm=find(DB.teams,myTeam()); const mem=DB.doctors.filter(d=>d.team===myTeam());
+    const all=allPatientsForView(); // team patient lists aren't modelled per-team in the mock: shows ED-wide queue
+    const st=stats(all);
+    const segs=[['Pending',st.pending],['In progress',st.prog],['Seen',st.seen],['Members',mem.length]];
+    const list = D.seg===0?all.filter(p=>p.visit.status===1):D.seg===1?all.filter(p=>p.visit.status===2):D.seg===2?all.filter(p=>p.visit.status===3):[];
+    body=`${nav('Team '+esc(tm?tm.name:''),{right:`<button class="act" data-a="d-assign">Change</button>`})}<div class="mini" style="padding:6px 14px"><span class="sub">${esc(DB.me.role||'')} · ${DB.me.area?find(LOOKUP.doctorAreas,DB.me.area).name:'no area'} · shift ${esc(DB.me.shift||'—')}</span></div><div class="stats click">${segs.map((s,i)=>`<div class="${D.seg===i?'on':''}" data-a="d-seg" data-i="${i}"><b>${s[1]}</b><span>${s[0]}</span></div>`).join('')}</div>
+      <div class="body">${D.seg===3
+        ? mem.map(d=>`<div class="card"><div class="hdr">${avatar({first:d.first,last:d.last})}<div><div class="name">${esc(d.title)} ${esc(d.first)} ${esc(d.last)}</div><div class="sub">${find(LOOKUP.doctorTypes,d.type).name} · ${esc(d.role)}</div><div class="sub">${find(LOOKUP.doctorAreas,d.area).name} · shift ${esc(d.shift)}</div></div></div></div>`).join('')
+        : (list.length?list.map(p=>patientRow(p)).join(''):'<div class="empty">No patients</div>')}</div>`;
+  } else if(D.tab==='map'){
+    body=renderMap();
+  } else if(D.tab==='more'){
+    body=renderMore();
+  } else {
+    body=`${nav('Notice board')}<div class="body">${DB.board.slice().sort((a,b)=>b.created-a.created).map(b=>{
+      const open=D.boardOpen===b.id;
+      return `<div class="card"><div class="sub">${fmtDate(b.created)}</div><div class="name">${esc(b.title)}${b.seen?'':'<span class="new">NEW</span>'}</div>
+        <div style="margin-top:6px;${open?'':'display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden'}">${esc(b.text)}</div>
+        ${open?'':`<button class="pen" data-a="d-readmore" data-id="${b.id}">Read more</button>`}</div>`; }).join('')}</div>`;
+  }
+  return `${body}${doctorTabs()}`;
+}
+
+function renderMap(){
+  const pos={1:[20,20,150,90],2:[190,20,150,90],3:[20,130,100,100],4:[135,130,100,100],5:[250,130,90,100],6:[20,245,320,60]};
+  const inRoom=id=>allPatientsForView().filter(p=>p.visit.room===id);
+  const sel=D.roomSel;
+  const svg=`<svg class="map" viewBox="0 0 360 325">${LOOKUP.rooms.map(r=>{const [x,y,w,h]=pos[r.id]; const n=inRoom(r.id).length;
+    return `<g class="room ${sel===r.id?'on':''}" data-a="d-room" data-id="${r.id}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8"/><text x="${x+8}" y="${y+16}">${r.name}</text>${n?`<circle class="dot" cx="${x+w-18}" cy="${y+h-18}" r="12"/><text class="dotn" x="${x+w-18}" y="${y+h-14}">${n}</text>`:''}</g>`; }).join('')}</svg>`;
+  const list = sel? inRoom(sel):[];
+  return `${nav('Map',{right:`<button class="act" data-a="d-ping">Simulate beacons</button>`})}<div class="body">${svg}
+    <div class="hint" style="margin:6px 0 10px">Schematic floor plan. Patient positions come from BLE beacon entries (<code>POST /beacon/entry</code>).</div>
+    ${sel?`<div class="sec-t">${find(LOOKUP.rooms,sel).name} — ${list.length} patient(s)</div>${list.map(p=>`<div class="card tap" data-a="d-open" data-n="${esc(p.nric)}"><div class="name">${esc(p.nric)}</div><div class="sub">${esc(fullName(p))}</div></div>`).join('')||'<div class="empty">Empty</div>'}`:'<div class="sec-t">Tap a room to list the patients in it</div>'}</div>`;
+}
+
+function renderDetail(t){
+  const p=patientByNric(t.n), v=p.visit, tri=v.triage||{}, vs=v.vitals||{}, nt=v.notes||{};
+  t.tab=t.tab||'triage'; t.open=t.open||{};
+  const tabs=[['triage','Triage notes'],['prior','Prior history'],['consult','Consult notes'],['results','Results'],['meds','Meds']];
+  const NA=x=>x?esc(x):'N/A';
+  let c='';
+  if(t.tab==='triage'){
+    const yes=LOOKUP.questions.filter(q=>v.qa[q.id]===1);
+    c=`${p.allergies?`<div class="note" style="margin-top:0">⚠ Drug allergies: ${esc(p.allergies)}</div>`:''}${v.trolley?`<div class="note">🛏 Patient requested a trolley</div>`:''}
+      <div class="kv gap">
+        <div><small>Arrived</small>${fmtDate(v.arrived)}</div><div><small>Mode of arrival</small>${NA(nt.mode)}</div>
+        <div><small>Referred by</small>${NA(nt.referredBy)}</div><div><small>Triage</small>${tri.priority?`<span class="pri p${tri.priority}">${priName(tri.priority)}</span>`:'N/A'}</div>
+        <div style="grid-column:1/3"><small>Chief complaints</small>${NA(nt.complaints)}</div>
+        <div style="grid-column:1/3"><small>Additional comments</small>${NA(nt.comments)}</div>
+        <div><small>Area</small>${esc(tri.area?areaName(tri.area):'N/A')}</div><div><small>Duration</small>${durText(tri.dur)}</div></div>
+      <div class="sec-t">Vital signs</div>
+      <div class="kv">${v.vitals?`<div><small>BP</small>${vs.bpS}/${vs.bpD}</div><div><small>Temp</small>${vs.temp} °C</div><div><small>Heart rate</small>${vs.hr}</div><div><small>Pain</small>${vs.pain}/10</div><div><small>Resp. rate</small>${vs.rr}</div><div><small>O₂</small>${vs.o2}%</div>`:'<div style="grid-column:1/3">N/A</div>'}</div>
+      <div class="sec-t">Screening</div><div class="card" style="margin:0">${yes.length?yes.map(q=>`• ${esc(q.text)}`).join('<br>'):'No positive screening answers.'}</div>
+      ${v.diagnosis?`<div class="sec-t">Disposition</div><div class="card" style="margin:0"><div class="name">${v.diagnosis.status===2?'Admitted':'Discharged'}</div><div>${esc(v.diagnosis.text)}</div>${v.diagnosis.status===2?`<div class="sub">${esc(v.diagnosis.discipline||'')} · Bed ${esc(v.diagnosis.bedClass||'')} · ~${v.diagnosis.days} days · $${v.diagnosis.cost}</div>`:`<div class="sub">Follow-up: ${esc(v.diagnosis.follow||'—')}<br>Medication: ${esc(v.diagnosis.medication||'—')}<br>MC: ${esc(v.diagnosis.leave||'—')}</div>`}</div>`:''}
+      <button class="btn sec gap" data-a="d-edittriage" data-n="${esc(p.nric)}">${tri.priority?'Edit triage':'Triage this patient'}</button>`;
+  } else if(t.tab==='prior'){
+    const pr=(p.prior||[]).slice().sort((a,b)=>b.created-a.created);
+    c=pr.length?`<div class="tl">${pr.map(h=>`<div class="card"><div class="name">${h.doctor?esc(docName(h.doctor)):'Self'}</div><div class="sub">${esc(h.hospital||'No hospital')} · ${esc(h.area||'No area')}</div>
+        <div style="margin:4px 0">${esc(h.diagnosis||'No Diagnosis')}</div><span class="pill s3">${esc(h.status||'Pending Consult')}</span> <span class="sub">${fmtDate(h.created)}</span></div>`).join('')}</div>`:'<div class="empty">No prior visits on record</div>';
+  } else if(t.tab==='consult'){
+    const rows=[['history','History','Enter history here...'],['exam','Physical Examination','Enter physical examination here...'],['plan','Management Plan','Enter management plan here...']];
+    c=rows.map(([k,l,ph])=>{ const open=!!t.open[k]||t.edit===k, ed=t.edit===k, val=v.consult[k];
+      return `<div class="acc"><div class="h"><div class="t">${l}</div><button class="pen" data-a="d-cedit" data-k="${k}" data-n="${esc(p.nric)}">${ed?'Done':'Edit'}</button><button class="pen" data-a="d-cacc" data-k="${k}">${open?'▲':'▼'}</button></div>
+        ${open?`<div class="b">${ed?`<textarea id="ce" placeholder="${ph}">${esc(val)}</textarea>`:(val?esc(val):`<span class="sub">${ph}</span>`)}</div>`:''}</div>`; }).join('')
+      +`<div class="hint">Saved per visit (<code>POST /history/{id}/consultationNotes</code>). Empty text is not saved, as in the app.</div>`;
+  } else {
+    c=`<div class="empty">Nothing here yet.<br><span class="hint">The "${t.tab==='results'?'Results':'Meds'}" tab is an empty placeholder in the source app.</span></div>`;
+  }
+  return `${nav('Patient',{back:'d-back'})}
+    <div class="mini">${avatar(p)}<div style="flex:1"><div class="name">${esc(fullName(p))}</div><div class="sub">${esc(p.nric)} · ${cap(genderName(p))} | ${age(p.dob)} years</div><div class="sub">${esc(tri.area?areaName(tri.area):'No Area')} · ${statusName(v.status)}</div></div></div>
+    <div class="tabs">${tabs.map(([k,l])=>`<button class="${t.tab===k?'on':''}" data-a="d-dtab" data-t="${k}">${l}</button>`).join('')}</div>
+    <div class="body">${c}</div>
+    <div class="foot row"><button class="btn sec" data-a="d-tasks" data-n="${esc(p.nric)}">Tasks (${v.tasks.length})</button><button class="btn" data-a="d-dispose" data-n="${esc(p.nric)}">Dispose</button></div>`;
+}
+
+/* tasks (TasksVC / NewTaskVC) */
+function miniPatient(p){ const v=p.visit, tri=v.triage||{}; return `<div class="mini">${avatar(p)}<div style="flex:1"><div class="name">${esc(fullName(p))}</div><div class="sub">${esc(p.nric)} · ${cap(genderName(p))} | ${age(p.dob)} years</div><div class="sub">${esc(tri.area?areaName(tri.area):'No Area')} · ${statusName(v.status)} · ${v.tasks.length} task(s)</div></div></div>`; }
+function renderTasks(t){
+  const p=patientByNric(t.n), list=p.visit.tasks.slice().sort((a,b)=>b.created-a.created);
+  return `${nav('Tasks',{back:'d-back',right:`<button class="act" data-a="d-newtask" data-n="${esc(p.nric)}">+ New</button>`})}${miniPatient(p)}
+    <div class="body">${list.map(k=>`<div class="card tap" data-a="d-task" data-n="${esc(p.nric)}" data-id="${k.id}"><div class="sub">${fmtDate(k.created)}</div>
+      <div class="row"><div><div class="name">${esc(k.subject)}</div><div class="sub" style="display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden">${esc(k.message)}</div></div>
+      <div style="flex:none;text-align:right"><span class="pill ${k.status==='Completed'?'s3':k.status==='Pending'?'s2':'s1'}">${taskStatus(k)}</span></div></div></div>`).join('')||'<div class="empty">No tasks for this patient</div>'}</div>`;
+}
+function renderTaskNew(t){
+  const f=t.f;
+  return `${nav('New task',{back:'d-back'})}<div class="body">
+    <label class="f">Subject</label><input type="text" data-nf="subject" value="${esc(f.subject)}" placeholder="e.g. Blood test">
+    <label class="f">Message</label><textarea data-nf="message" placeholder="Type a message…">${esc(f.message)}</textarea>
+    <label class="f">Recipients (${f.rec.length} selected)</label>
+    ${DB.doctors.map(d=>`<div class="rec ${f.rec.includes(d.id)?'on':''}" data-a="d-rec" data-id="${d.id}">${avatar({first:d.first,last:d.last})}<div style="flex:1"><div class="name">${esc(d.title)} ${esc(d.first)} ${esc(d.last)}</div><div class="sub">${find(LOOKUP.doctorTypes,d.type)?find(LOOKUP.doctorTypes,d.type).name:''}</div></div>${f.rec.includes(d.id)?'✓':''}</div>`).join('')}
+    </div><div class="foot"><button class="btn" data-a="d-savetask" data-n="${esc(t.n)}">Send</button></div>`;
+}
+function renderTask(t){
+  const p=patientByNric(t.n); const k=p.visit.tasks.find(x=>x.id===t.id); const done=k.status==='Completed';
+  return `${nav('Task',{back:'d-back',right:`<button class="act" data-a="d-complete" data-n="${esc(p.nric)}" data-id="${k.id}">${done?'✓ Completed':'✓ Mark complete'}</button>`})}
+    ${miniPatient(p)}<div class="body">
+    <div class="name" style="font-size:17px">${esc(k.subject)}</div><div class="sub">Status: ${taskStatus(k)} · From ${esc(docName(k.creator))}</div>
+    <div class="chips gap">${k.recipients.map(r=>`<span class="pill">${esc(docName(r))}</span>`).join('')}</div>
+    <div class="sec-t">Messages</div>${k.messages.map(m=>{const me=m.from===DB.me.id;return `<div class="bubble ${me?'me':''}"><div class="t">${me?'You':esc(docName(m.from))} · ${fmtTime(m.at)}</div>${esc(m.text)}</div>`;}).join('')||'<div class="sub">No messages yet.</div>'}</div>
+    <div class="foot row"><input type="text" id="tmsg" placeholder="Type a message…" style="flex:1"><button class="btn sm" style="flex:none" data-a="d-sendmsg" data-n="${esc(p.nric)}" data-id="${k.id}">Send</button></div>`;
+}
+
+/* Change role / coverage / team after onboarding (NOT in the source app: its server endpoints exist, the client has no screen) */
+function renderAssign(t){
+  const f=t.f, me=DB.me;
+  const roles=LOOKUP.rolesByType[f.type]||[];
+  const chip=(on,a,attr,label,extra='')=>`<button class="chip ${on?'on':''}" data-a="${a}" ${attr} ${extra}>${label}</button>`;
+  return `${nav('Team & coverage',{back:'d-back',right:`<button class="act" data-a="d-newteam">+ New team</button>`})}<div class="body">
+    <div class="note" style="margin-top:0">Prototype addition: the source app only lets you set these during first login (log out to change).</div>
+    <div class="sec-t">Role</div><div class="chips">${LOOKUP.doctorTypes.map(x=>chip(f.type===x.id,'d-atype',`data-id="${x.id}"`,x.name)).join('')}</div>
+    <div class="sec-t">Sub-role</div><div class="chips">${roles.map(r=>chip(f.role===r,'d-arole',`data-r="${esc(r)}"`,esc(r))).join('')}</div>
+    <div class="sec-t">Area of coverage</div><div class="chips">${LOOKUP.doctorAreas.map(a=>chip(f.area===a.id,'d-aarea',`data-id="${a.id}"`,a.name)).join('')}</div>
+    <div class="sec-t">Shift start</div><div class="chips">${LOOKUP.shifts.map(x=>chip(f.shift===x,'d-ashift',`data-s="${x}"`,x)).join('')}</div>
+    <div class="sec-t">Team</div>
+    ${DB.teams.map(tm=>{ const mem=DB.doctors.filter(d=>d.team===tm.id&&d.id!==me.id); const docs=mem.filter(d=>d.type!==3).length+(f.type!==3&&f.team===tm.id?1:0); const full=f.type!==3&&docs>=4&&f.team!==tm.id;
+      return `<button class="chip ${f.team===tm.id?'on':''}" style="width:100%;margin-bottom:8px;text-align:left;padding:12px 14px" ${full?'disabled':''} data-a="d-ateam" data-id="${tm.id}"><b>Team ${esc(tm.name)}</b>${me.team===tm.id?' (current)':''}<br><span style="opacity:.75;font-size:12px">${mem.length+(me.team===tm.id?1:0)} members${tm.area?' · '+find(LOOKUP.doctorAreas,tm.area).name:''}${full?' · full (4 doctors)':''}</span></button>`; }).join('')}
+    </div><div class="foot"><button class="btn" data-a="d-asave">Save changes</button></div>`;
+}
+
+/* More menu, Screening, Triage carousel, Analytics */
+function renderMore(){
+  const item=(a,icon,label,extra='')=>`<div class="card tap menu" data-a="${a}" ${extra}><span style="font-size:20px">${icon}</span><div style="flex:1" class="name">${label}</div><span class="sub">›</span></div>`;
+  return `${nav('More')}<div class="body">
+    ${item('d-situation','📊','Situation')}${item('d-screening','🧾','Screening')}${item('d-mtriage','🩺','Triage')}${item('d-status','🔔','Status')}${item('d-settings','⚙️','Settings')}${item('d-assign','👥','Team & coverage')}${item('d-analytics','📈','Analytics')}
+    <div class="card tap menu" data-a="d-logout-ask" style="margin-top:16px"><span style="font-size:20px">⏻</span><div style="flex:1" class="name">Log out</div></div>
+    <div class="hint">Situation, Status and Settings are empty shells in the source app. I put Analytics here because its entry point isn't in the code I could read (the tab-bar storyboard is missing).</div></div>`;
+}
+function renderScreening(){
+  const all=allPatientsForView();
+  return `${nav('Screening',{back:'d-back'})}<div class="body">${all.map(p=>`<div class="card"><div class="hdr">${avatar(p)}<div><div class="name">${esc(fullName(p))}</div><div class="sub">ID: ${esc(p.nric)}</div></div></div></div>`).join('')}</div>`;
+}
+function renderMoreTriage(t){
+  const all=allPatientsForView(), st=stats(all);
+  if(!t.sel&&all.length) t.sel=all[0].nric;
+  const p=t.sel?patientByNric(t.sel):null;
+  let det='<div class="empty">No patients</div>';
+  if(p){ const v=p.visit, tri=v.triage||{}, nt=v.notes||{};
+    det=`<div class="kv">
+      <div><small>Mode</small>${esc(nt.mode||tri.mode||'N/A')}</div><div><small>ID flags</small>${esc(tri.flags||'—')}</div>
+      <div><small>Complaint</small>${esc(tri.complaint?find(LOOKUP.complaints,tri.complaint).name:'N/A')}</div><div><small>Duration</small>${durText(tri.dur)}</div>
+      <div style="grid-column:1/3"><small>Comments</small>${esc(tri.comment||'N/A')}</div>
+      <div style="grid-column:1/3"><small>Triage area</small>${tri.priority?`Triaged as ${priName(tri.priority)}${tri.area?'  to '+areaName(tri.area):''}`:'N/A'}</div></div>
+      <div class="row gap"><button class="btn sec" data-a="d-edittriage" data-n="${esc(p.nric)}">Edit</button><button class="btn" data-a="d-dispose" data-n="${esc(p.nric)}">Dispose</button></div>`; }
+  return `${nav('Triage',{back:'d-back'})}
+    <div class="stats"><div><b>${st.pending}</b><span>Pending</span></div><div><b>${st.wait}</b><span>Waiting (min)</span></div><div><b>${st.prog}</b><span>In progress</span></div><div><b>${st.seen}</b><span>Seen</span></div></div>
+    <div class="carousel">${all.map(q=>`<div class="c ${q.nric===t.sel?'on':''}" data-a="d-trsel" data-n="${esc(q.nric)}">${avatar(q)}${esc(q.first)}</div>`).join('')}</div>
+    <div class="body">${p?`<div class="hdr card">${avatar(p,'lg')}<div><div class="name" style="font-size:17px">${esc(fullName(p))}</div><div class="sub">${esc(p.nric)}</div><div class="sub">${cap(genderName(p))} | ${age(p.dob)} years</div></div></div>`:''}${det}</div>`;
+}
+function renderAnalytics(){
+  // GET /user/analytics returns hard-coded dummy values in the backend; same here
+  const A=[['Took over',2],['Seen',15],['Hand overs',94],['Duration (min)',120],['"Lorem" rate %',41],['Steps','6,234']];
+  return `${nav('Analytics',{back:'d-back'})}<div class="body"><div class="kv">${A.map(([l,n])=>`<div class="tile"><small>${l}</small><b>${n}</b></div>`).join('')}</div>
+    <div class="note">Placeholder numbers: the backend returns fixed dummy values for these six tiles (the "lorem rate" label gives it away).</div></div>`;
+}
+
+/* triage edit (TriageDetailVC) */
+function renderTriage(t){
+  const p=patientByNric(t.n); const f=t.f;
+  const allowed = f.priority? AREA_RULES[f.priority]:null;
+  return `${nav('Triage — '+esc(fullName(p)),{back:'d-back'})}<div class="body">
+    <label class="f">Complaint</label><select data-tf="complaint"><option value="">Select</option>${LOOKUP.complaints.map(c=>`<option value="${c.id}" ${f.complaint===c.id?'selected':''}>${c.name}</option>`).join('')}</select>
+    <label class="f">Duration</label><div class="row"><input type="number" min="0" data-tf="durN" value="${f.durN}" placeholder="0"><select data-tf="durU">${LOOKUP.durationUnits.map(u=>`<option ${f.durU===u?'selected':''}>${u}</option>`).join('')}</select></div>
+    <label class="f">Priority category</label><div class="chips">${LOOKUP.priorities.map(x=>`<button class="chip p${x.id} ${f.priority===x.id?'on':''}" data-a="d-pri" data-id="${x.id}">${x.name}</button>`).join('')}</div>
+    <label class="f">Area (allowed areas depend on priority)</label>
+    ${f.priority?`<div class="chips">${LOOKUP.areas.map(a=>`<button class="chip ${f.area===a.id?'on':''}" data-a="d-tarea" data-id="${a.id}" ${allowed.includes(a.id)?'':'disabled'}>${a.name}</button>`).join('')}</div>`:'<div class="hint">Pick a priority first.</div>'}
+    <label class="f">Comments</label><textarea data-tf="comment">${esc(f.comment)}</textarea></div>
+    <div class="foot"><button class="btn" data-a="d-savetriage" data-n="${esc(p.nric)}">Submit</button></div>`;
+}
+
+/* dispose (DisposeVC) */
+// illustrative only: the real app shows estimated_cost / length_of_stay_days saved on the diagnosis
+function estimate(f){ return {cost:1200+(f.discipline?600:0)+({A1:3000,B1:1500,B2:800,C:300}[f.bedClass]||0), days:1+(f.bedClass==='A1'?0:2)+(f.discipline?1:0)}; }
+function renderDispose(t){
+  const p=patientByNric(t.n); const f=t.f; const admit=f.mode==='admit';
+  const pillBtn=(k,label,val)=>`<div class="card" style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><div style="flex:1"><div class="sub">${label}</div>${esc(val)||'<span class="sub">Not set</span>'}</div><button class="pen" data-a="d-text" data-k="${k}" data-l="${label}">${val?'Edit':'+ Add'}</button></div>`;
+  const {cost,days} = admit? estimate(f):{cost:0,days:0};
+  return `${nav('Dispose — '+esc(fullName(p)),{back:'d-back'})}<div class="body">
+    <div class="sw"><button class="${admit?'on':''}" data-a="d-mode" data-m="admit">Admit</button><button class="${admit?'':'on'}" data-a="d-mode" data-m="discharge">Discharge</button></div>
+    <label class="f">Diagnosis</label><textarea data-df="text" placeholder="Enter diagnosis">${esc(f.text)}</textarea>
+    ${admit?`
+      <label class="f">Admit discipline</label><select data-df="discipline"><option value="">Select</option>${LOOKUP.disciplines.map(d=>`<option ${f.discipline===d?'selected':''}>${d}</option>`).join('')}</select>
+      <label class="f">Bed class</label><select data-df="bedClass"><option value="">Select</option>${LOOKUP.bedClasses.map(d=>`<option ${f.bedClass===d?'selected':''}>${d}</option>`).join('')}</select>
+      <div class="kv gap"><div><small>Estimated length of stay</small><b>${days} days</b></div><div><small>Estimated total cost</small><b>$${cost.toLocaleString()}</b></div></div>
+      <div class="hint">Cost / stay are illustrative; the original reads them from the saved diagnosis.</div>`
+    :`
+      <div class="gap"></div>${pillBtn('follow','Follow up',f.follow)}${pillBtn('medication','Medication',f.medication)}${pillBtn('leave','Medical leave',f.leave)}
+      <div class="kv"><div><small>Reattendance risk</small><b>37 %</b></div><div><small>30-day mortality risk</small><b>2.7 %</b></div></div>
+      <div class="hint">Risk figures are hard-coded placeholders in the backend (<code>get_disposition</code>) — same here.</div>`}
+    <button class="btn sec gap" data-a="d-clear">Clear</button></div>
+    <div class="foot"><button class="btn" data-a="d-savedispose" data-n="${esc(p.nric)}">Submit</button></div>`;
+}
+
+/* doctor actions */
+function login(){
+  DB.me={id:99,title:'Dr',first:'Fred',last:'Demo',type:null,role:null,team:null,area:null,shift:null}; save();
+  D.stack=[{s:'role'}];
+}
+function doctorAction(a,el){
+  switch(a){
+  case 'd-login': {
+    const u=$('#lu').value.trim(), pw=$('#lp').value;
+    if(!u) return toast('Username is missing!'); if(!pw) return toast('Password is missing!');
+    if(u!=='fred'||pw!=='test') return toast('Username/Password is incorrect!');
+    login(); break; }
+  case 'd-faceid': toast('Authentication Successful',true); login(); break;
+  case 'd-logout': DB.me=null; save(); resetDoctor(); break;
+  case 'd-back': pop(); break;
+  case 'd-role': D.reg.type=+el.dataset.id; push({s:'coverage'}); break;
+  case 'd-cov': D.reg.area=+el.dataset.id; break;
+  case 'd-shift': D.reg.shift=el.dataset.s; break;
+  case 'd-cov-next': if(!D.reg.area) return toast('Please select an area of coverage'); if(!D.reg.shift) return toast('Please select a shift time'); push({s:'teams'}); break;
+  case 'd-newteam': D.reg.teamArea=null; D.reg.teamName=''; push({s:'newteam'}); break;
+  case 'd-teamarea': D.reg.teamArea=+el.dataset.id; break;
+  case 'd-createteam': { const n=(D.reg.teamName||'').trim(); if(!n) return toast('Team name is missing!'); const nid=Math.max(...DB.teams.map(x=>x.id))+1; DB.teams.push({id:nid,name:n,area:D.reg.teamArea||null}); save(); pop(); if(cur().s==='assign') cur().f.team=nid; break; }
+  case 'd-jointeam': {
+    const roles={1:'junior',2:'senior',3:'regular'};
+    Object.assign(DB.me,{type:D.reg.type,role:roles[D.reg.type],team:+el.dataset.id,area:D.reg.area,shift:D.reg.shift});
+    DB.doctors=DB.doctors.filter(d=>d.id!==99); DB.doctors.push(DB.me); DB.me.title=D.reg.type===3?'Nurse':'Dr';
+    save(); D.stack=[{s:'main'}]; D.tab='patients'; break; }
+  case 'd-assign': { const m=DB.me; push({s:'assign',f:{type:m.type||2,role:m.role||null,area:m.area||null,shift:m.shift||null,team:m.team||null}}); break; }
+  case 'd-atype': { const f=cur().f; f.type=+el.dataset.id; if(!(LOOKUP.rolesByType[f.type]||[]).includes(f.role)) f.role=LOOKUP.rolesByType[f.type][0]; break; }
+  case 'd-arole': cur().f.role=el.dataset.r; break;
+  case 'd-aarea': cur().f.area=+el.dataset.id; break;
+  case 'd-ashift': cur().f.shift=el.dataset.s; break;
+  case 'd-ateam': cur().f.team=+el.dataset.id; break;
+  case 'd-asave': {
+    const f=cur().f, m=DB.me;
+    if(!f.role) return toast('Please select a sub-role'); if(!f.area) return toast('Please select an area of coverage'); if(!f.shift) return toast('Please select a shift time'); if(!f.team) return toast('Please select a team');
+    Object.assign(m,{type:f.type,role:f.role,area:f.area,shift:f.shift,team:f.team,title:f.type===3?'Nurse':'Dr'});
+    save(); toast('Assignment updated',true); pop(); break; }
+  case 'd-tab': D.tab=el.dataset.t; D.roomSel=null; break;
+  case 'd-searchtoggle': D.searchOpen=!D.searchOpen; if(!D.searchOpen) D.search=''; break;
+  case 'd-seg': D.seg=+el.dataset.i; break;
+  case 'd-readmore': { D.boardOpen=+el.dataset.id; const b=find(DB.board,D.boardOpen); b.seen=true; save(); break; }
+  case 'd-room': D.roomSel = D.roomSel===+el.dataset.id? null : +el.dataset.id; break;
+  case 'd-ping': { const ps=allPatientsForView().filter(p=>p.visit.status<3); ps.forEach(p=>{ if(Math.random()<.6) p.visit.room=1+Math.floor(Math.random()*6); }); save(); toast('Beacon entries received',true); break; }
+  case 'd-open': {
+    const p=patientByNric(el.dataset.n);
+    // PatientListVC: opening a pending patient moves them to "In Consult"
+    if(p.visit.status===1){ p.visit.status=2; p.visit.attending=DB.me.id; save(); }
+    push({s:'detail',n:p.nric}); break; }
+  case 'd-edittriage': {
+    const p=patientByNric(el.dataset.n); const tr=p.visit.triage||{};
+    let unit='minutes',n=0; if(tr.dur){ for(const u of LOOKUP.durationUnits.slice().reverse()){ const s=LOOKUP.durationSecs[u]; if(tr.dur>=s && tr.dur%s===0){unit=u;n=tr.dur/s;break;} } }
+    push({s:'triage',n:p.nric,f:{complaint:tr.complaint||null,durN:n||'',durU:unit,priority:tr.priority||null,area:tr.area||null,comment:tr.comment||''}}); break; }
+  case 'd-pri': { const t=cur(); t.f.priority=+el.dataset.id; if(t.f.area && !AREA_RULES[t.f.priority].includes(t.f.area)) t.f.area=null; break; }
+  case 'd-tarea': cur().f.area=+el.dataset.id; break;
+  case 'd-savetriage': {
+    const t=cur(), f=t.f, p=patientByNric(el.dataset.n);
+    if(!f.complaint) return toast('Please select a complaint'); if(!f.priority) return toast('Please select a priority'); if(!f.area) return toast('Please select an area');
+    const prev=p.visit.triage||{};
+    p.visit.triage=Object.assign({mode:'Walk-in',flags:''},prev,{complaint:f.complaint,priority:f.priority,area:f.area,dur:(parseFloat(f.durN)||0)*LOOKUP.durationSecs[f.durU],comment:f.comment});
+    save(); toast('Triage saved',true); pop(); break; }
+  case 'd-dispose': {
+    const p=patientByNric(el.dataset.n); const dg=p.visit.diagnosis;
+    push({s:'dispose',n:p.nric,f:{mode:dg&&dg.status===2?'admit':'discharge',text:dg?dg.text:'',discipline:dg?dg.discipline||'':'',bedClass:dg?dg.bedClass||'':'',follow:dg?dg.follow:'',medication:dg?dg.medication:'',leave:dg?dg.leave:''}}); break; }
+  case 'd-mode': cur().f.mode=el.dataset.m; break;
+  case 'd-clear': Object.assign(cur().f,{text:'',discipline:'',bedClass:'',follow:'',medication:'',leave:''}); break;
+  case 'd-text': {
+    const k=el.dataset.k, l=el.dataset.l;
+    const m=openModal(`<div class="name">${esc(l)}</div><input type="text" id="mt" class="gap" value="${esc(cur().f[k])}"><div class="row gap"><button class="btn sec" data-a="d-modalclose">Close</button><button class="btn" data-a="d-modalok" data-k="${k}">OK</button></div>`,true);
+    $('#mt',m).focus(); return; }
+  case 'd-modalclose': closeModal(); return;
+  case 'd-modalok': cur().f[el.dataset.k]=$('#mt').value.trim(); closeModal(); break;
+  case 'd-savedispose': {
+    const f=cur().f, p=patientByNric(el.dataset.n), admit=f.mode==='admit';
+    if(!f.text.trim()) return toast('Diagnosis is missing!');
+    if(admit){ if(!f.discipline) return toast('Select an admit discipline'); if(!f.bedClass) return toast('Select a bed class'); }
+    else { if(!f.follow) return toast('Follow up is missing!'); if(!f.medication) return toast('Medication is missing!'); if(!f.leave) return toast('Medical leave is missing!'); }
+    const {cost,days}=admit?estimate(f):{cost:0,days:0};
+    p.visit.diagnosis={text:f.text.trim(),status:admit?2:3,follow:f.follow,medication:f.medication,leave:f.leave,discipline:admit?f.discipline:null,bedClass:admit?f.bedClass:null,cost,days};
+    p.visit.status=3; save(); toast(admit?'Admitted':'Discharged',true);
+    D.stack=[{s:'main'}]; D.tab='patients'; break; }
+  case 'd-dtab': cur().tab=el.dataset.t; break;
+  case 'd-cacc': { const t=cur(); t.open=t.open||{}; t.open[el.dataset.k]=!t.open[el.dataset.k]; break; }
+  case 'd-cedit': {
+    const t=cur(), k=el.dataset.k, p=patientByNric(el.dataset.n);
+    if(t.edit===k){ const ta=$('#ce'); const val=ta?ta.value.trim():''; if(val){ p.visit.consult[k]=val; save(); } else toast('Nothing to save'); t.edit=null; }
+    else { t.edit=k; t.open=t.open||{}; t.open[k]=true; }
+    break; }
+  case 'd-tasks': push({s:'tasks',n:el.dataset.n}); break;
+  case 'd-newtask': push({s:'newtask',n:el.dataset.n,f:{subject:'',message:'',rec:[]}}); break;
+  case 'd-rec': { const f=cur().f, id=+el.dataset.id; f.rec=f.rec.includes(id)?f.rec.filter(x=>x!==id):f.rec.concat(id); break; }
+  case 'd-savetask': {
+    const f=cur().f, p=patientByNric(el.dataset.n);
+    if(!f.rec.length) return toast('Select at least one recipient'); if(!f.subject.trim()) return toast('Subject is missing!'); if(!f.message.trim()) return toast('Message is missing!');
+    const at=Date.now();
+    p.visit.tasks.push({id:at%1000000,subject:f.subject.trim(),message:f.message.trim(),status:'Unfinished',creator:DB.me.id,recipients:f.rec.slice(),created:at,messages:[{from:DB.me.id,text:f.message.trim(),at}]});
+    save(); toast('Task sent',true); pop(); break; }
+  case 'd-task': push({s:'task',n:el.dataset.n,id:+el.dataset.id}); break;
+  case 'd-complete': { const k=patientByNric(el.dataset.n).visit.tasks.find(x=>x.id===+el.dataset.id); if(k.status==='Completed') return; k.status='Completed'; save(); break; }
+  case 'd-sendmsg': {
+    const v=$('#tmsg').value.trim(); if(!v) return;
+    const k=patientByNric(el.dataset.n).visit.tasks.find(x=>x.id===+el.dataset.id);
+    // as in NewTaskVC: a reply from someone other than the creator moves New/Unfinished -> Pending
+    if((k.status==='New'||k.status==='Unfinished') && k.creator!==DB.me.id) k.status='Pending';
+    k.messages.push({from:DB.me.id,text:v,at:Date.now()}); save(); break; }
+  case 'd-situation': push({s:'shell',title:'Situation'}); break;
+  case 'd-status': push({s:'shell',title:'Status'}); break;
+  case 'd-settings': push({s:'shell',title:'Settings'}); break;
+  case 'd-screening': push({s:'screening'}); break;
+  case 'd-mtriage': push({s:'mtriage',sel:null}); break;
+  case 'd-trsel': cur().sel=el.dataset.n; break;
+  case 'd-analytics': push({s:'analytics'}); break;
+  case 'd-logout-ask':
+    openModal(`<div class="name">Are you sure you want to log out?</div><div class="row gap"><button class="btn sec" data-a="d-modalclose">No</button><button class="btn" data-a="d-logout">Yes</button></div>`,true); return;
+  }
+  renderDoctor();
+}
+function bindDoctorInputs(e){
+  const t=e.target, s=cur();
+  if(t.id==='sq'){ D.search=t.value; const pos=t.selectionStart; renderDoctor(); const n=$('#sq'); if(n){ n.focus(); n.setSelectionRange(pos,pos);} return; }
+  if(t.id==='tn'){ D.reg.teamName=t.value; return; }
+  if(t.dataset.nf){ s.f[t.dataset.nf]=t.value; return; }
+  if(t.dataset.tf){ const k=t.dataset.tf; s.f[k]= (k==='complaint')?(+t.value||null):t.value; }
+  if(t.dataset.df){ s.f[t.dataset.df]=t.value; if(t.dataset.df==='bedClass'||t.dataset.df==='discipline') renderDoctor(); }
+}
+
+/* ============================================================
+   Wiring
+   ============================================================ */
+let app = (()=>{ try{ return localStorage.getItem(LS_KEY+':app')||'patient'; }catch(e){ return 'patient'; } })();
+function setApp(a){
+  app=a; try{ localStorage.setItem(LS_KEY+':app',a); }catch(e){}
+  document.querySelectorAll('#appSwitch button').forEach(b=>b.classList.toggle('on',b.dataset.app===a));
+  render();
+}
+function render(){ app==='patient'?renderPatient():renderDoctor(); }
+
+document.addEventListener('click',e=>{
+  const sw=e.target.closest('#appSwitch button'); if(sw) return setApp(sw.dataset.app);
+  const el=e.target.closest('[data-a]'); if(!el||!$('#device').contains(el)) return;
+  const a=el.dataset.a;
+  if(a==='d-modalclose'||a==='d-modalok') return doctorAction(a,el);
+  if(a.startsWith('p-')) patientAction(a,el); else doctorAction(a,el);
+  // closing modal after OK handled in doctorAction re-render
+});
+document.addEventListener('input',e=>{ if(!$('#device').contains(e.target)) return; app==='patient'?bindPatientInputs(e):bindDoctorInputs(e); });
+document.addEventListener('change',e=>{ if(!$('#device').contains(e.target)) return; app==='patient'?bindPatientInputs(e):bindDoctorInputs(e); });
+$('#assisted').addEventListener('change',()=>{ resetPatient(); if(app==='patient') renderPatient(); });
+$('#resetBtn').addEventListener('click',()=>{ store.clear(); DB=seed(); resetPatient(); resetDoctor(); render(); toast('Mock data reset',true); });
+setApp(app);
+</script>
+</body>
+</html>
