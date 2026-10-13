@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hospital triage prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E9EFEF; --surface:#FFFFFF; --surface2:#F3F7F7; --ink:#10262B; --muted:#5B7076; --line:#D9E3E4;
+  --brand:#0F6B73; --brand-ink:#FFFFFF; --brand-soft:#DDF0F1;
+  --p1:#C62F3B; --p1t:#FFFFFF; --p2:#E07B1F; --p2t:#FFFFFF; --p3:#F2C230; --p3t:#3A2D00; --p4:#2F8F5B; --p4t:#FFFFFF;
+  --warn:#C62F3B; --warn-soft:#FBE4E6; --ok:#2F8F5B; --ok-soft:#E0F2E8; --planfilter:none;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0A1214; --surface:#132024; --surface2:#1A2B30; --ink:#E6F0F1; --muted:#93A8AD; --line:#27393D;
+    --brand:#4CC3CC; --brand-ink:#06262A; --brand-soft:#173A3E;
+    --warn:#FF7A85; --warn-soft:#3A1B20; --ok:#5FCB8E; --ok-soft:#163626; --planfilter:invert(.88);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A1214; --surface:#132024; --surface2:#1A2B30; --ink:#E6F0F1; --muted:#93A8AD; --line:#27393D;
+  --brand:#4CC3CC; --brand-ink:#06262A; --brand-soft:#173A3E;
+  --warn:#FF7A85; --warn-soft:#3A1B20; --ok:#5FCB8E; --ok-soft:#163626; --planfilter:invert(.88);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+
+.stage{min-height:100%;display:flex;gap:40px;align-items:center;justify-content:center;padding:24px}
+.guide{width:300px;flex:none}
+.guide h1{font-size:24px;line-height:1.15;margin:0 0 8px;letter-spacing:-.01em}
+.guide p{color:var(--muted);margin:0 0 16px;font-size:14px}
+.guide h2{font-size:14px;margin:20px 0 8px}
+.jump{display:flex;flex-direction:column;gap:6px}
+.jump button{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+.jump button:hover{border-color:var(--brand)}
+.guide ul{margin:0;padding-left:18px;color:var(--muted);font-size:13px}
+.guide li{margin-bottom:4px}
+
+.device{width:390px;height:min(820px,calc(100dvh - 48px));background:var(--surface);border:1px solid var(--line);border-radius:36px;box-shadow:0 20px 50px rgba(8,30,34,.18);overflow:hidden;display:flex;flex-direction:column;position:relative}
+#app{display:flex;flex-direction:column;height:100%;min-height:0}
+.hdr{flex:none;display:grid;grid-template-columns:92px 1fr 92px;align-items:center;padding:14px 12px 8px;min-height:56px}
+.hdr .t{text-align:center;font-weight:600;font-size:16px}
+.hdr .l{justify-self:start}.hdr .r{justify-self:end}
+.lnk{background:none;border:0;color:var(--brand);font-weight:500;padding:8px;border-radius:8px}
+.body{flex:1;min-height:0;overflow-y:auto;padding:4px 18px 20px}
+.big{font-size:28px;line-height:1.1;font-weight:700;letter-spacing:-.02em;margin:6px 0 4px}
+.sub{color:var(--muted);margin:0 0 16px}
+.tabbar{flex:none;display:grid;grid-template-columns:repeat(6,1fr);border-top:1px solid var(--line);background:var(--surface);padding:6px 4px 10px}
+.tabbar button{background:none;border:0;padding:6px 1px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;color:var(--muted);border-radius:10px}
+.tabbar button svg{width:22px;height:22px}
+.tabbar button.on{color:var(--brand);font-weight:600}
+
+.btn{display:block;width:100%;border:0;border-radius:14px;padding:14px 16px;font-weight:600;background:var(--brand);color:var(--brand-ink);text-align:center}
+.btn.alt{background:var(--surface2);color:var(--ink);border:1px solid var(--line)}
+.btn.sm{width:auto;display:inline-block;padding:9px 14px;border-radius:10px;font-size:14px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.stack>*+*{margin-top:10px}
+.row{display:flex;align-items:center;gap:10px}
+.sp{flex:1}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card.tap{width:100%;text-align:left;display:block}
+.card.tap:hover{border-color:var(--brand)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--muted)}
+.in{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;min-height:46px}
+textarea.in{min-height:96px;resize:vertical}
+.muted{color:var(--muted)}.small{font-size:13px}
+.seg{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px;margin-bottom:14px}
+.seg button{flex:1;border:0;background:none;border-radius:9px;padding:8px 4px;font-size:13px;font-weight:500;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;margin:0 -18px 6px;padding-left:18px;padding-right:18px}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-size:13px}
+.chip.on{background:var(--brand);border-color:var(--brand);color:var(--brand-ink);font-weight:600}
+
+.pbadge{flex:none;min-width:38px;height:28px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;padding:0 8px}
+.pbadge.P1{background:var(--p1);color:var(--p1t)}.pbadge.P2{background:var(--p2);color:var(--p2t)}
+.pbadge.P3{background:var(--p3);color:var(--p3t)}.pbadge.P4{background:var(--p4);color:var(--p4t)}
+.pt{border-left:6px solid var(--line);padding-left:12px}
+.pt.P1{border-color:var(--p1)}.pt.P2{border-color:var(--p2)}.pt.P3{border-color:var(--p3)}.pt.P4{border-color:var(--p4)}
+.status{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);white-space:nowrap}
+.status.Waiting{background:var(--surface2)}
+.status.Inprogress{background:var(--brand-soft);color:var(--brand);border-color:transparent}
+.status.Admitted{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.status.Discharged{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.plist>*+*{margin-top:10px}
+.pname{font-weight:600;font-size:16px}
+
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.vt{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
+.vt .n{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.vt .u{font-size:12px;color:var(--muted)}
+.vt.warn{border-color:var(--warn);background:var(--warn-soft)}
+.vt.warn .n{color:var(--warn)}
+
+.kv{display:grid;grid-template-columns:110px 1fr;gap:8px 10px;font-size:14px}
+.kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:500}
+
+.yn{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+.yn button{border:2px solid var(--line);background:var(--surface);border-radius:16px;padding:22px 10px;font-size:20px;font-weight:600}
+.yn button:hover{border-color:var(--brand)}
+.prog{height:6px;background:var(--surface2);border-radius:99px;overflow:hidden;margin:6px 0 18px}
+.prog i{display:block;height:100%;background:var(--brand);transition:width .25s}
+
+.scanner{aspect-ratio:1;border-radius:20px;background:#0E1C20;position:relative;display:flex;align-items:center;justify-content:center;color:#9DB5BA;overflow:hidden;margin:6px 0 18px}
+.scanner::before{content:"";position:absolute;inset:18%;border:3px solid #4CC3CC;border-radius:18px}
+.avatar{width:88px;height:88px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:30px;font-weight:600}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:12px;padding:12px}
+.sw{width:46px;height:28px;border-radius:99px;background:var(--line);border:0;position:relative;flex:none}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .15s}
+.sw.on{background:var(--brand)}.sw.on::after{transform:translateX(18px)}
+
+.result{border-radius:22px;padding:22px;text-align:center}
+.result.P1{background:var(--p1);color:var(--p1t)}.result.P2{background:var(--p2);color:var(--p2t)}
+.result.P3{background:var(--p3);color:var(--p3t)}.result.P4{background:var(--p4);color:var(--p4t)}
+.result .pp{font-size:84px;line-height:1;font-weight:700;letter-spacing:-.04em}
+.qr{width:160px;height:160px;margin:0 auto;color:var(--ink);background:var(--surface);padding:8px;border-radius:12px;border:1px solid var(--line)}
+
+.bars{display:flex;align-items:flex-end;gap:12px;height:130px;margin-top:6px}
+.bars>div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px;font-size:12px}
+.bars i{display:block;width:100%;border-radius:8px 8px 3px 3px;min-height:4px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.tile{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--surface)}
+.tile b{display:block;font-size:28px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+
+.sheetbg{position:absolute;inset:0;background:rgba(5,20,22,.5);display:flex;align-items:flex-end;z-index:5}
+.sheet{background:var(--surface);width:100%;border-radius:24px 24px 0 0;padding:18px 18px 24px;max-height:88%;overflow:auto}
+.sheet h3{margin:0 0 12px;font-size:18px}
+.toast{position:absolute;left:18px;right:18px;bottom:84px;background:var(--ink);color:var(--surface);padding:12px 14px;border-radius:12px;font-size:14px;z-index:9;text-align:center}
+.check{width:26px;height:26px;border-radius:8px;border:2px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center;background:var(--surface)}
+.check.done{background:var(--ok);border-color:var(--ok);color:#fff}
+.err{color:var(--warn);font-size:13px;margin-top:6px}
+.note{background:var(--brand-soft);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:13px;margin-top:14px}
+
+
+.mplanwrap{border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--surface);margin-bottom:8px}
+.mplan{position:relative;aspect-ratio:693/760;transform-origin:0 0;transition:transform .45s ease;--z:1}
+.mplan img{position:absolute;inset:0;width:100%;height:100%;display:block;filter:var(--planfilter)}
+.mlayer{position:absolute;inset:0}
+.mdot{position:absolute;width:11px;height:11px;border-radius:50%;border:2px solid var(--surface);transform:translate(-50%,-50%) scale(calc(1/var(--z)));transition:left .7s linear,top .7s linear;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.mdot.P1{background:var(--p1)}.mdot.P2{background:var(--p2)}.mdot.P3{background:var(--p3)}.mdot.P4{background:var(--p4)}
+.mbdg{position:absolute;transform:translate(-50%,-50%) scale(calc(1/var(--z)));display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;padding:0}
+.mbdg b{min-width:34px;height:34px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.mbdg span{font-size:10.5px;font-weight:600;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:1px 5px;white-space:nowrap}
+.mbdg.zero b{background:var(--surface2);color:var(--muted);box-shadow:none;border:2px dashed var(--line)}
+.mbdg.sel b,.mbdg.zero.sel b{background:var(--ink);color:var(--surface);border:3px solid var(--surface)}
+.mbdg.pulse b{animation:mpulse .7s ease}
+@keyframes mpulse{0%{box-shadow:0 0 0 0 var(--brand)}100%{box-shadow:0 0 0 14px transparent}}
+.mctl{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 6px}
+.mctl label{display:flex;align-items:center;gap:6px}
+.mctl select{width:auto;min-height:36px;padding:6px 10px;font-size:13px}
+.cnt{flex:none;min-width:28px;height:28px;border-radius:50%;background:var(--brand-soft);color:var(--brand);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:13px}
+.cnt.zero{background:var(--surface2);color:var(--muted);font-weight:500}
+@media (prefers-reduced-motion:reduce){.mplan,.mdot{transition:none!important}.mbdg.pulse b{animation:none}}
+@media (max-width:760px){
+  .stage{padding:0;display:block}
+  .guide{display:none}
+  .device{width:100%;height:100dvh;border-radius:0;border:0;box-shadow:none}
+}
+@media (max-width:1000px) and (min-width:761px){ .guide{display:none} }
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <aside class="guide" aria-label="Prototype guide">
+    <h1>Hospital triage prototype</h1>
+    <p>A clickable rebuild of the iOS triage and consultation app, using mock data. Pick a starting point.</p>
+    <div class="jump" id="jump">
+      <button data-a="jump" data-v="patient">Patient self triage flow</button>
+      <button data-a="jump" data-v="plist">Doctor: patient list</button>
+      <button data-a="jump" data-v="pdetail">Doctor: patient detail</button>
+      <button data-a="jump" data-v="dispose">Doctor: admit or discharge</button>
+      <button data-a="jump" data-v="map">Doctor: map and beacon tracking</button>
+      <button data-a="jump" data-v="reset">Reset demo data</button>
+    </div>
+    <h2>Where this came from</h2>
+    <ul>
+      <li>Screens and flow from the iOS storyboards (Patient and Doctor)</li>
+      <li>Reference lists from the Laravel seeders: P1 to P4, coverage areas, bed classes, admission disciplines, doctor roles</li>
+      <li>Beacon room tracking is simulated, with no real hardware or beacons</li>
+      <li>Not included: face capture, real login</li>
+    </ul>
+  </aside>
+  <main class="device" id="device"><div id="app"></div></main>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- reference data (from backend seeders) ---------- */
+var AREAS=['Ambulatory','Fast Track','Trolley','Resuscitation','Observation','Isolation','Procedure'];
+var SUGGEST={P1:['Resuscitation','Trolley','Isolation','Fast Track'],P2:['Trolley','Ambulatory','Fast Track','Procedure','Isolation'],P3:['Fast Track','Ambulatory','Procedure','Isolation'],P4:['Ambulatory','Fast Track','Procedure']};
+var DISCIPLINES=['Burns','Cardiothoracic Surgery','Cardiology','Dental','Endocrinology','Gastroenterology and Hepatology','General Surgery','Gynaecology','Haematology','Hand Surgery','Internal Medicine','Neonatology','Neurology','Neurology (Stroke)','Neurosurgery','Oncology','Ophthalmology','Orthopaedic Surgery','Otolaryngology','Plastic Surgery','Psychiatry','Renal Medicine','Respiratory Medicine','Rheumatology','Urology'];
+var BEDS=['A1','B1','B2','C'];
+var TYPES={'Junior Doctor':['junior','step-down','half shift'],'Senior Doctor':['senior','area in charge','locum'],'Nurse':['regular','area triage','area changes']};
+var QUESTIONS=[
+  {k:'chest',t:'Are you having chest pain?'},
+  {k:'breath',t:'Are you having trouble breathing?'},
+  {k:'resp',t:'Do you have a fever, cough or sore throat?'},
+  {k:'travel',t:'Have you travelled overseas in the past 14 days?'}
+];
+var VITALS=[
+  {k:'temp',l:'Temperature',u:'\u00B0C',ph:'36.8',bad:function(v){return v>=38||v<36}},
+  {k:'bp',l:'Blood pressure',u:'mmHg',ph:'120/80',bad:function(v){var s=+String(v).split('/')[0];return s<90||s>160}},
+  {k:'hr',l:'Heart rate',u:'bpm',ph:'80',bad:function(v){return v>110||v<50}},
+  {k:'pain',l:'Pain',u:'scale 0 to 10',ph:'3',bad:function(v){return v>=7}},
+  {k:'rr',l:'Respiratory rate',u:'per min',ph:'16',bad:function(v){return v>24||v<10}},
+  {k:'o2',l:'Oxygen saturation',u:'percent',ph:'98',bad:function(v){return v<94}}
+];
+
+function seedPatients(){return [
+ {id:1,name:'Tan Wei Ming',nric:'S6512***D',age:58,gender:'Male',pri:'P1',area:'Resuscitation',complaint:'Chest pain',arrival:'10:42 am',mode:'Ambulance',status:'In progress',inf:false,comments:'Pain radiating to left arm for about an hour.',v:{temp:'37.1',bp:'92/58',hr:'128',pain:'9',rr:'26',o2:'91'},hist:[{d:'12 Mar 2019',t:'Hypertension review, medication adjusted'},{d:'03 Aug 2018',t:'Chest discomfort, ECG normal, discharged'}],notes:[],dx:''},
+ {id:2,name:'Nur Aisyah',nric:'S9004***F',age:30,gender:'Female',pri:'P2',area:'Trolley',complaint:'Abdominal pain',arrival:'11:05 am',mode:'Walk-in',status:'Waiting',inf:false,comments:'Sharp pain in lower right abdomen since last night.',v:{temp:'37.8',bp:'118/76',hr:'102',pain:'7',rr:'20',o2:'98'},hist:[],notes:[],dx:''},
+ {id:3,name:'Rajesh Kumar',nric:'S7820***B',age:41,gender:'Male',pri:'P3',area:'Fast Track',complaint:'Ankle injury',arrival:'11:20 am',mode:'Walk-in',status:'Waiting',inf:false,comments:'Twisted ankle playing football, swelling present.',v:{temp:'36.7',bp:'126/82',hr:'84',pain:'5',rr:'16',o2:'99'},hist:[{d:'20 Jan 2017',t:'Wrist sprain, strapped'}],notes:[],dx:''},
+ {id:4,name:'Mary Lim',nric:'S4801***H',age:72,gender:'Female',pri:'P2',area:'Isolation',complaint:'Shortness of breath',arrival:'11:34 am',mode:'Ambulance',status:'Waiting',inf:true,comments:'Cough and fever for three days.',v:{temp:'38.4',bp:'134/80',hr:'108',pain:'2',rr:'27',o2:'92'},hist:[{d:'05 Nov 2018',t:'Pneumonia, admitted 4 days'}],notes:[],dx:''},
+ {id:5,name:'Chen Jia Hui',nric:'S0105***A',age:24,gender:'Female',pri:'P4',area:'Ambulatory',complaint:'Sore throat',arrival:'11:48 am',mode:'Walk-in',status:'Waiting',inf:false,comments:'',v:{temp:'37.4',bp:'110/70',hr:'76',pain:'2',rr:'15',o2:'99'},hist:[],notes:[],dx:''},
+ {id:6,name:'David Ong',nric:'S5503***C',age:66,gender:'Male',pri:'P3',area:'Observation',complaint:'Dizziness',arrival:'09:15 am',mode:'Walk-in',status:'Admitted',inf:false,comments:'Dizzy on standing, no fall.',v:{temp:'36.6',bp:'148/90',hr:'72',pain:'0',rr:'16',o2:'97'},hist:[],notes:[{t:'Orthostatic drop confirmed. Admit for monitoring.',by:'Dr. Lee',at:'09:55 am'}],dx:'Postural hypotension'},
+ {id:7,name:'Siti Rahmah',nric:'S8709***E',age:35,gender:'Female',pri:'P4',area:'Ambulatory',complaint:'Skin rash',arrival:'08:50 am',mode:'Walk-in',status:'Discharged',inf:false,comments:'',v:{temp:'36.9',bp:'112/72',hr:'74',pain:'1',rr:'14',o2:'99'},hist:[],notes:[],dx:'Contact dermatitis'}
+];}
+function seedTasks(){return [
+ {id:1,subject:'Review ECG for Tan Wei Ming',desc:'Please confirm ST changes before cath lab call.',to:['Dr. Lee'],status:'Pending'},
+ {id:2,subject:'Chase CT result',desc:'Mary Lim, chest CT requested at 11:50.',to:['Nurse Farah'],status:'In progress'},
+ {id:3,subject:'Restock trolley area',desc:'IV sets and saline.',to:['Nurse Joy'],status:'Done'}
+];}
+function seedPosts(){return [
+ {id:1,title:'Resus bay 2 is out of service',body:'Use bay 1 and 3 until maintenance is done at 3 pm.',seen:7,pending:8},
+ {id:2,title:'Shift handover at 2 pm',body:'Please complete consult notes before handover.',seen:11,pending:4}
+];}
+function fresh(){return {name:'',nric:'',gender:'Female',age:'',inf:false,photo:false,ans:{},v:{temp:'',bp:'',hr:'',pain:'',rr:'',o2:''},result:null};}
+
+/* ---------- beacon room tracking simulation ---------- */
+var MW=693,MH=760,M_RSSI1M=-59,M_N=3,M_MPU=0.04,M_CORR=372,M_STEP_S=5;
+var PLAN='data:image/png;base64,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';
+var MROOMS=[
+ {n:'Waiting Area',s:'Waiting',x:170,y:205},{n:'Registration Counter',s:'Registration',x:510,y:225},
+ {n:'Room 1',s:'Room 1',x:112,y:550},{n:'Room 2',s:'Room 2',x:300,y:550},{n:'Room 3',s:'Room 3',x:482,y:550},{n:'Triage',s:'Triage',x:590,y:120}
+];
+var MNEXT={0:[1,5,0],1:[0,5],5:[0,1,0]};
+var MSTART={1:2,2:0,3:0,4:5,5:1};
+function mrnd(a,b){return a+Math.random()*(b-a)}
+function mgauss(){var u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+function mmac(i){var h='0123456789ABCDEF',k=(i*7919+13)%65536,x='';for(var j=0;j<3;j++){x+=h[(k>>(j*4))&15]+h[(k*(j+3)>>2)&15]+(j<2?':':'')}return 'C4:'+x}
+function mdur(s){return s<60?s+' s':Math.floor(s/60)+' min'+(s%60>=5?' '+(s%60)+' s':'')}
+function mspot(r){return {x:MROOMS[r].x+mrnd(-22,22),y:MROOMS[r].y+mrnd(-22,22)}}
+function simMk(id,room){return {pos:mspot(room),room:room,target:room,path:[],dwell:Math.floor(mrnd(6,18)),moving:false,rep:-1,repSince:0,rssi:null,tag:mmac(id)}}
+function simRoute(p,to){
+  var e=mspot(to);
+  p.path=((p.room===1&&to===5)||(p.room===5&&to===1))?[e]:[{x:p.pos.x,y:M_CORR},{x:e.x,y:M_CORR},e];
+  p.target=to;
+}
+function simNew(){
+  var sm={t:10*3600+40*60,ents:[],pts:{},win:180,truth:true,sel:-1,last:[]};
+  S.sim=sm;for(var i=0;i<25;i++)simTick(true);return sm;
+}
+function simTick(silent){
+  var sm=S&&S.sim;if(!sm)return;
+  sm.t+=M_STEP_S;var ids={};
+  S.patients.forEach(function(pt){
+    var tracked=pt.status==='Waiting'||pt.status==='In progress';
+    if(!tracked){delete sm.pts[pt.id];return}
+    ids[pt.id]=1;
+    if(!sm.pts[pt.id])sm.pts[pt.id]=simMk(pt.id,MSTART[pt.id]!==undefined?MSTART[pt.id]:1);
+    var p=sm.pts[pt.id],inP=pt.status==='In progress',inTreat=p.room>=2&&p.room<=4;
+    if(p.path.length){
+      var q=p.path[0],dx=q.x-p.pos.x,dy=q.y-p.pos.y,d=Math.sqrt(dx*dx+dy*dy),step=110;
+      if(d<=step){p.pos={x:q.x,y:q.y};p.path.shift();if(!p.path.length){p.room=p.target;p.dwell=Math.floor(mrnd(10,26))}}
+      else{p.pos={x:p.pos.x+dx/d*step,y:p.pos.y+dy/d*step}}
+      p.moving=true;
+    }else{
+      p.moving=false;
+      if(inP&&!inTreat){simRoute(p,2+Math.floor(Math.random()*3))}
+      else if(!inP&&inTreat){simRoute(p,0)}
+      else if(!inP){p.dwell--;if(p.dwell<=0){var o=MNEXT[p.room];simRoute(p,o[Math.floor(Math.random()*o.length)])}}
+    }
+    MROOMS.forEach(function(r,i){
+      var ddx=r.x-p.pos.x,ddy=r.y-p.pos.y,m=Math.max(0.5,Math.sqrt(ddx*ddx+ddy*ddy)*M_MPU);
+      var rssi=Math.round(M_RSSI1M-10*M_N*Math.log(m)/Math.LN10+mgauss()*2.5);
+      if(rssi>-92)sm.ents.push({t:sm.t,b:i,rssi:rssi,pid:pt.id});
+    });
+  });
+  sm.ents=sm.ents.filter(function(e){return ids[e.pid]&&e.t>sm.t-360});
+  Object.keys(sm.pts).forEach(function(k){
+    var p=sm.pts[k],min=sm.t-sm.win,top=null;
+    sm.ents.forEach(function(e){if(e.pid===+k&&e.t>min&&(!top||e.rssi>top.rssi))top=e});
+    var nr=top?top.b:-1;if(nr!==p.rep){p.rep=nr;p.repSince=sm.t}
+    p.rssi=top?top.rssi:null;
+  });
+  if(!silent){if(S.screen==='d_home'&&S.tab==='map')mapDraw();locUpdate()}
+}
+function simWhere(id){var p=S.sim&&S.sim.pts[id];if(!p)return 'Not tracked';return p.rep>-1?MROOMS[p.rep].n:'Not detected'}
+function locUpdate(){var e=document.getElementById('locname');if(e&&S.screen==='d_patient')e.textContent=simWhere(S.sel)}
+function locHtml(p){
+  var x=S.sim&&S.sim.pts[p.id];if(!x)return '';
+  return '<div class="card" style="margin-top:12px"><div class="row"><div class="sp"><div class="muted small">Last seen by room beacons</div><div id="locname" style="font-weight:600">'+esc(simWhere(p.id))+'</div><div class="muted small">Wristband tag '+esc(x.tag)+'</div></div><button class="btn sm alt" data-a="showmap" data-v="'+p.id+'">Show on map</button></div></div>';
+}
+function mapCounts(){var c=MROOMS.map(function(){return 0});Object.keys(S.sim.pts).forEach(function(k){var r=S.sim.pts[k].rep;if(r>-1)c[r]++});return c}
+function pmap(){
+  var sm=S.sim;
+  var chips='<button class="chip" data-a="room" data-v="-1">Overview</button>'+MROOMS.map(function(r,i){return '<button class="chip" data-a="room" data-v="'+i+'">'+esc(r.n)+'</button>'}).join('');
+  var bd=MROOMS.map(function(r,i){return '<button class="mbdg zero" id="mb'+i+'" data-a="room" data-v="'+i+'" style="left:'+(r.x/MW*100)+'%;top:'+(r.y/MH*100)+'%"><b>0</b><span>'+esc(r.s)+'</span></button>'}).join('');
+  return '<div class="big">Map</div><p class="sub" id="mapsub"></p>'+
+   '<div class="chips" id="mchips" role="group" aria-label="Rooms">'+chips+'</div>'+
+   '<div class="mplanwrap" id="mwrap"><div class="mplan" id="mplan"><img alt="Hospital floor plan" src="'+PLAN+'"><div class="mlayer" id="mdots"></div><div class="mlayer">'+bd+'</div></div></div>'+
+   '<div class="mctl"><label class="small muted"><input type="checkbox" id="mtruth" data-a-change="maptruth"'+(sm.truth?' checked':'')+'> Show actual positions</label>'+
+   '<select class="in" data-a-change="mapwin" aria-label="Look-back window">'+[[30,'Look back 30 s'],[60,'Look back 1 min'],[180,'Look back 3 min']].map(function(o){return '<option value="'+o[0]+'"'+(sm.win===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></div>'+
+   '<p class="small muted" style="margin:0 0 12px">Numbers show where beacons last heard each wristband. Dots show where people really are, so you can see the delay when someone moves.</p>'+
+   '<div id="mlist"></div>';
+}
+function mapDraw(){
+  var sm=S.sim,plan=document.getElementById('mplan');if(!plan)return;
+  var c=mapCounts(),ids=Object.keys(sm.pts),located=c.reduce(function(a,b){return a+b},0);
+  document.getElementById('mapsub').textContent=located+' of '+ids.length+' waiting or active patients located';
+  Array.prototype.forEach.call(document.querySelectorAll('#mchips .chip'),function(b){b.classList.toggle('on',+b.getAttribute('data-v')===sm.sel)});
+  MROOMS.forEach(function(r,i){
+    var b=document.getElementById('mb'+i),prev=b.getAttribute('data-n');
+    b.classList.toggle('zero',c[i]===0);b.classList.toggle('sel',sm.sel===i);
+    b.firstChild.textContent=c[i];b.setAttribute('aria-label',r.n+', '+c[i]+' patients');
+    if(prev!==null&&+prev!==c[i]){b.classList.remove('pulse');void b.offsetWidth;b.classList.add('pulse')}
+    b.setAttribute('data-n',c[i]);
+  });
+  var dl=document.getElementById('mdots');
+  Array.prototype.forEach.call(dl.children,function(d){if(!sm.pts[d.getAttribute('data-id')])d.remove()});
+  ids.forEach(function(k){
+    var p=sm.pts[k],pt=byId(+k),d=document.getElementById('md'+k);
+    if(!d){d=document.createElement('div');d.id='md'+k;d.setAttribute('data-id',k);d.className='mdot '+pt.pri;d.title=pt.name;d.style.left=(p.pos.x/MW*100)+'%';d.style.top=(p.pos.y/MH*100)+'%';dl.appendChild(d)}
+    d.style.display=sm.truth?'':'none';d.style.left=(p.pos.x/MW*100)+'%';d.style.top=(p.pos.y/MH*100)+'%';
+  });
+  var z=1,ox=0,oy=0,pw=plan.clientWidth,ph=plan.clientHeight;
+  if(sm.sel>-1){var r=MROOMS[sm.sel];z=1.9;var cx=r.x/MW*pw,cy=r.y/MH*ph;ox=Math.min(0,Math.max(pw-pw*z,pw/2-cx*z));oy=Math.min(0,Math.max(ph-ph*z,ph/2-cy*z))}
+  plan.style.setProperty('--z',z);plan.style.transform='translate('+ox+'px,'+oy+'px) scale('+z+')';
+  document.getElementById('mwrap').style.height=ph+'px';
+  var h='';
+  if(sm.sel===-1){
+    h='<div style="font-weight:600;margin-bottom:8px">Rooms</div><div class="plist">'+MROOMS.map(function(r,i){return '<button class="card tap" data-a="room" data-v="'+i+'"><div class="row"><div class="sp pname" style="font-size:15px">'+esc(r.n)+'</div><span class="cnt'+(c[i]?'':' zero')+'">'+c[i]+'</span></div></button>'}).join('')+'</div>';
+  }else{
+    var ps=ids.filter(function(k){return sm.pts[k].rep===sm.sel});
+    h='<div style="font-weight:600;margin-bottom:8px">'+esc(MROOMS[sm.sel].n)+', '+ps.length+(ps.length===1?' patient':' patients')+'</div>';
+    if(!ps.length)h+='<div class="muted small">Nobody detected in this room right now.</div>';
+    h+='<div class="plist">'+ps.map(function(k){var pt=byId(+k),p=sm.pts[k];return '<button class="card tap pt '+pt.pri+'" data-a="open" data-v="'+pt.id+'"><div class="row"><div class="sp"><div class="pname" style="font-size:15px">'+esc(pt.name)+'</div><div class="muted small">ID '+esc(pt.nric)+' - here for '+mdur(sm.t-p.repSince)+'</div></div>'+badge(pt.pri)+'</div></button>'}).join('')+'</div>';
+  }
+  document.getElementById('mlist').innerHTML=h;
+}
+
+var S;
+function reset(){
+  S={screen:'login',stack:[],role:{type:'Senior Doctor',role:'senior'},tab:'patients',filter:'All',sel:null,dtab:'triage',sheet:null,
+     dmode:'admit',dd:{},q:0,scanned:false,err:'',patients:seedPatients(),tasks:seedTasks(),posts:seedPosts(),draft:fresh(),nextId:8,queue:14,
+     team:{name:'Emergency team A',members:[{n:'Dr. Lee',r:'senior'},{n:'Dr. Sam Chin',r:'junior'},{n:'Nurse Farah',r:'area triage'}],cov:['Trolley','Resuscitation'],time:'9:00 am to 5:00 pm'}};
+  S.sim=simNew();
+}
+reset();
+
+/* ---------- helpers ---------- */
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function byId(id){return S.patients.filter(function(p){return p.id===id})[0]}
+function css(s){return s.replace(/\s/g,'')}
+function go(screen){S.stack.push(S.screen);S.screen=screen;S.err='';render()}
+function back(){S.screen=S.stack.pop()||'login';S.err='';render()}
+function root(screen){S.stack=[];S.screen=screen;S.err='';render()}
+function toast(msg){
+  var d=document.getElementById('device');var old=d.querySelector('.toast');if(old)old.remove();
+  var t=document.createElement('div');t.className='toast';t.setAttribute('role','status');t.textContent=msg;d.appendChild(t);
+  setTimeout(function(){t.remove()},2200);
+}
+function icon(n){
+  var p={
+   pat:'<path d="M16 11a4 4 0 1 0-8 0M4 20c0-4 3.5-6 8-6s8 2 8 6"/><circle cx="12" cy="7" r="3.2"/>',
+   task:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l2 2 4-4M9 17h6"/>',
+   board:'<path d="M4 5h16v11H9l-5 4z"/>',
+   stat:'<path d="M5 20V10M12 20V4M19 20v-7"/>',
+   map:'<path d="M12 21s-6.500-5.600-6.500-11a6.500 6.500 0 0 1 13 0c0 5.400-6.500 11-6.500 11z"/><circle cx="12" cy="10" r="2.300"/>',
+   team:'<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.5 3-5 6-5s6 1.5 6 5M15.5 15c3 0 5.5 1 5.5 4"/>'
+  }[n];
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';
+}
+function badge(p){return '<span class="pbadge '+p+'">'+p+'</span>'}
+function statusPill(s){return '<span class="status '+css(s)+'">'+esc(s)+'</span>'}
+function qrSvg(seed){
+  var n=25,x=seed*9301+49297,cells='';
+  function rnd(){x=(x*9301+49297)%233280;return x/233280}
+  function finder(ox,oy){return '<rect x="'+ox+'" y="'+oy+'" width="7" height="7" fill="currentColor"/><rect x="'+(ox+1)+'" y="'+(oy+1)+'" width="5" height="5" fill="var(--surface)"/><rect x="'+(ox+2)+'" y="'+(oy+2)+'" width="3" height="3" fill="currentColor"/>'}
+  for(var i=0;i<n;i++){for(var j=0;j<n;j++){
+    var inF=(i<8&&j<8)||(i<8&&j>n-9)||(i>n-9&&j<8);
+    if(!inF&&rnd()>.5)cells+='<rect x="'+j+'" y="'+i+'" width="1" height="1" fill="currentColor"/>';
+  }}
+  return '<svg class="qr" viewBox="0 0 '+n+' '+n+'" role="img" aria-label="Patient QR code" shape-rendering="crispEdges">'+cells+finder(0,0)+finder(n-7,0)+finder(0,n-7)+'</svg>';
+}
+function vitalsGrid(v){
+  return '<div class="vgrid">'+VITALS.map(function(d){
+    var bad=v[d.k]!==''&&d.bad(v[d.k]);
+    return '<div class="vt'+(bad?' warn':'')+'"><div class="u">'+d.l+'</div><div class="n">'+esc(v[d.k]||'-')+'</div><div class="u">'+d.u+(bad?' - check':'')+'</div></div>';
+  }).join('')+'</div>';
+}
+function suggest(v,a){
+  var hr=+v.hr,o2=+v.o2,rr=+v.rr,temp=+v.temp,pain=+v.pain,sys=+String(v.bp).split('/')[0];
+  if(o2<90||sys<80||hr>140||rr>32)return 'P1';
+  if(o2<94||sys<90||hr>120||rr>26||(a.chest&&(hr>100||pain>=7))||(a.breath&&o2<96))return 'P2';
+  if(temp>=38||pain>=5||hr>100||a.chest||a.breath)return 'P3';
+  return 'P4';
+}
+function header(title,opts){
+  opts=opts||{};
+  return '<div class="hdr"><div class="l">'+(opts.back?'<button class="lnk" data-a="back" aria-label="Back">Back</button>':'')+'</div><div class="t">'+esc(title||'')+'</div><div class="r">'+(opts.right||'')+'</div></div>';
+}
+function tabbar(){
+  var t=[['patients','Patients','pat'],['map','Map','map'],['tasks','Tasks','task'],['board','Board','board'],['stats','Analytics','stat'],['team','Team','team']];
+  return '<nav class="tabbar" aria-label="Main">'+t.map(function(x){return '<button data-a="tab" data-v="'+x[0]+'" class="'+(S.tab===x[0]?'on':'')+'" '+(S.tab===x[0]?'aria-current="page"':'')+'>'+icon(x[2])+x[1]+'</button>'}).join('')+'</nav>';
+}
+
+/* ---------- screens: each returns {h, b, tabs, sheet} ---------- */
+var screens={};
+
+screens.login=function(){
+  return {h:'',b:
+   '<div style="padding-top:40px"><div class="avatar" style="border-radius:22px;width:64px;height:64px;font-size:26px" aria-hidden="true">+</div>'+
+   '<div class="big" style="margin-top:18px">Hospital triage</div><p class="sub">Sign in as staff, or start self triage at the kiosk.</p>'+
+   '<div class="stack">'+
+   '<div class="field"><label for="em">Email</label><input id="em" class="in" value="dr.lee@hospital.example" autocomplete="off"></div>'+
+   '<div class="field"><label for="pw">Password</label><input id="pw" class="in" type="password" value="password" autocomplete="off"></div>'+
+   '<button class="btn" data-a="staff">Sign in as staff</button>'+
+   '<button class="btn alt" data-a="kiosk">Start patient self triage</button></div></div>'};
+};
+
+/* patient flow */
+screens.p_start=function(){
+  return {h:header('Self triage',{back:true}),b:
+   '<div style="text-align:center;padding-top:60px"><div class="avatar" style="width:110px;height:110px;font-size:40px" aria-hidden="true">+</div>'+
+   '<div class="big">Self triage</div><p class="sub">Press start to get started. It takes about three minutes.</p>'+
+   '<div style="margin-top:36px"><button class="btn" data-a="p_begin">Start</button></div></div>'};
+};
+screens.p_scan=function(){
+  return {h:header('Your identification',{back:true}),b:
+   '<p class="sub">Hold your ID card in front of the camera.</p>'+
+   '<div class="scanner" aria-hidden="true">'+(S.scanned?'<div style="text-align:center;color:#7DE0A8;font-weight:600;font-size:18px">ID read</div>':'<div>Camera view</div>')+'</div>'+
+   '<div class="stack"><button class="btn" data-a="p_scan">'+(S.scanned?'Scan again':'Scan ID')+'</button>'+
+   (S.scanned?'<button class="btn alt" data-a="p_scanned_next">Continue</button>':'')+'</div>'};
+};
+screens.p_profile=function(){
+  var d=S.draft;
+  return {h:header('Your details',{back:true}),b:
+   '<div class="avatar" aria-hidden="true">'+(d.name?esc(d.name.charAt(0).toUpperCase()):'?')+'</div>'+
+   '<div style="text-align:center;margin-bottom:16px"><button class="lnk" data-a="p_photo">'+(d.photo?'Photo added. Retake':'Take photo')+'</button></div>'+
+   '<div class="field"><label for="f_name">Name</label><input id="f_name" class="in" data-bind="draft.name" value="'+esc(d.name)+'"></div>'+
+   '<div class="field"><label for="f_nric">ID number</label><input id="f_nric" class="in" data-bind="draft.nric" value="'+esc(d.nric)+'"></div>'+
+   '<div class="row"><div class="field sp"><label for="f_age">Age</label><input id="f_age" class="in" inputmode="numeric" data-bind="draft.age" value="'+esc(d.age)+'"></div>'+
+   '<div class="field sp"><label for="f_g">Gender</label><select id="f_g" class="in" data-bind="draft.gender">'+['Female','Male','Other'].map(function(g){return '<option'+(d.gender===g?' selected':'')+'>'+g+'</option>'}).join('')+'</select></div></div>'+
+   (S.err?'<div class="err" role="alert">'+esc(S.err)+'</div>':'')+
+   '<div style="margin-top:12px"><button class="btn" data-a="p_profile_next">Next</button></div>'};
+};
+screens.p_questions=function(){
+  var q=QUESTIONS[S.q];
+  return {h:header('Screening',{back:true}),b:
+   '<div class="small muted">Question '+(S.q+1)+' of '+QUESTIONS.length+'</div>'+
+   '<div class="prog"><i style="width:'+((S.q)/QUESTIONS.length*100)+'%"></i></div>'+
+   '<div class="big" style="font-size:26px">'+esc(q.t)+'</div>'+
+   '<div class="yn"><button data-a="p_ans" data-v="yes">Yes</button><button data-a="p_ans" data-v="no">No</button></div>'};
+};
+screens.p_vitals=function(){
+  var d=S.draft;
+  var f=VITALS.map(function(x){
+    return '<div class="field"><label for="v_'+x.k+'">'+x.l+' ('+x.u+')</label><input id="v_'+x.k+'" class="in" data-bind="draft.v.'+x.k+'" placeholder="'+x.ph+'" inputmode="'+(x.k==='bp'?'text':'decimal')+'" value="'+esc(d.v[x.k])+'"></div>';
+  }).join('');
+  return {h:header('Vital signs',{back:true}),b:
+   '<p class="sub">Use the kiosk cuff and finger sensor, then enter the readings.</p>'+f+
+   (S.err?'<div class="err" role="alert">'+esc(S.err)+'</div>':'')+
+   '<div class="stack" style="margin-top:8px"><button class="btn" data-a="p_submit">Submit</button><button class="btn alt" data-a="p_sample">Use sample readings</button></div>'};
+};
+screens.p_result=function(){
+  var r=S.draft.result||{pri:'P4',area:'Ambulatory',q:'A-000',id:0};
+  return {h:header('Allocation'),b:
+   '<div class="result '+r.pri+'"><div style="font-weight:600">Triaged as</div><div class="pp">'+r.pri+'</div><div style="font-size:18px;font-weight:600">Go to '+esc(r.area)+'</div></div>'+
+   '<div class="card" style="margin-top:14px;text-align:center"><div class="muted small">Queue number</div><div style="font-size:30px;font-weight:700;letter-spacing:.02em">'+esc(r.q)+'</div></div>'+
+   '<div style="margin:16px 0 4px;text-align:center">'+qrSvg(r.id+3)+'<p class="muted small">Show this code to the triage nurse.</p></div>'+
+   '<div class="note">Priority here comes from a simple demo rule on the vital signs, not clinical logic. The nurse can change it.</div>'+
+   '<div class="stack" style="margin-top:14px"><button class="btn" data-a="p_done">Finish</button><button class="btn alt" data-a="p_to_doctor">See patient in doctor view</button></div>'};
+};
+
+/* doctor flow */
+screens.d_role=function(){
+  var roles=TYPES[S.role.type];
+  return {h:header('Select role',{back:true}),b:
+   '<p class="sub">Choose how you are working this shift.</p>'+
+   '<div class="seg" role="tablist">'+Object.keys(TYPES).map(function(t){return '<button data-a="d_type" data-v="'+t+'" class="'+(S.role.type===t?'on':'')+'">'+t+'</button>'}).join('')+'</div>'+
+   '<div class="stack">'+roles.map(function(r){return '<button class="card tap" data-a="d_rolepick" data-v="'+r+'" style="'+(S.role.role===r?'border-color:var(--brand);background:var(--brand-soft)':'')+'"><b style="text-transform:capitalize">'+r+'</b></button>'}).join('')+'</div>'+
+   '<div style="margin-top:18px"><button class="btn" data-a="d_enter">Continue</button></div>'};
+};
+function plist(){
+  var f=S.filter,list=S.patients.filter(function(p){return f==='All'||p.status===f});
+  list.sort(function(a,b){return a.pri.localeCompare(b.pri)||a.id-b.id});
+  var chips=['All','Waiting','In progress','Admitted','Discharged'].map(function(c){return '<button class="chip'+(f===c?' on':'')+'" data-a="filter" data-v="'+c+'">'+c+'</button>'}).join('');
+  var rows=list.map(function(p){
+    return '<button class="card tap pt '+p.pri+'" data-a="open" data-v="'+p.id+'"><div class="row"><div class="sp"><div class="pname">'+esc(p.name)+'</div><div class="muted small">'+esc(p.gender)+', '+esc(p.age)+' years - '+esc(p.complaint)+'</div></div>'+badge(p.pri)+'</div>'+
+    '<div class="row small" style="margin-top:10px">'+statusPill(p.status)+'<span class="muted">'+esc(p.area)+'</span><span class="sp"></span><span class="muted">'+esc(p.arrival)+'</span></div></button>';
+  }).join('');
+  return '<div class="big">Patients</div><p class="sub">'+esc(S.team.name)+' - '+S.patients.filter(function(p){return p.status==='Waiting'}).length+' waiting</p>'+
+    '<div class="chips" role="group" aria-label="Filter by status">'+chips+'</div><div class="plist">'+(rows||'<div class="muted">No patients with this status.</div>')+'</div>';
+}
+function ptasks(){
+  var rows=S.tasks.map(function(t){
+    return '<div class="card"><div class="row" style="align-items:flex-start"><button class="check'+(t.status==='Done'?' done':'')+'" data-a="tasktoggle" data-v="'+t.id+'" aria-label="Mark task '+(t.status==='Done'?'not done':'done')+'">'+(t.status==='Done'?'&#10003;':'')+'</button>'+
+    '<div class="sp"><div style="font-weight:600;'+(t.status==='Done'?'text-decoration:line-through;color:var(--muted)':'')+'">'+esc(t.subject)+'</div><div class="muted small">'+esc(t.desc)+'</div><div class="row small" style="margin-top:8px">'+statusPill(t.status)+'<span class="muted">To '+esc(t.to.join(', '))+'</span></div></div></div></div>';
+  }).join('');
+  return '<div class="row"><div class="big sp">Tasks</div><button class="btn sm" data-a="sheet" data-v="task">New task</button></div><p class="sub">Tap the box to mark a task done.</p><div class="plist">'+rows+'</div>';
+}
+function pboard(){
+  return '<div class="big">Board</div><p class="sub">Announcements for your team.</p><div class="plist">'+S.posts.map(function(p){
+    return '<div class="card"><div style="font-weight:600">'+esc(p.title)+'</div><p class="muted" style="margin:6px 0 10px">'+esc(p.body)+'</p><div class="small muted">'+p.seen+' seen, '+p.pending+' pending</div></div>';
+  }).join('')+'</div>';
+}
+function pstats(){
+  var c={P1:0,P2:0,P3:0,P4:0};S.patients.forEach(function(p){c[p.pri]++});
+  var max=Math.max(1,c.P1,c.P2,c.P3,c.P4);
+  var seen=S.patients.filter(function(p){return p.status==='Admitted'||p.status==='Discharged'}).length;
+  return '<div class="big">Analytics</div><p class="sub">Today so far.</p>'+
+   '<div class="tiles"><div class="tile"><b>'+seen+'</b><span class="muted small">Patients seen</span></div><div class="tile"><b>18</b><span class="muted small">Average minutes per patient</span></div><div class="tile"><b>3</b><span class="muted small">Handovers</span></div><div class="tile"><b>2</b><span class="muted small">Cases taken over</span></div></div>'+
+   '<div class="card"><div style="font-weight:600">Patients by priority</div><div class="bars">'+['P1','P2','P3','P4'].map(function(k){return '<div><b>'+c[k]+'</b><i style="height:'+(c[k]/max*80+4)+'%;background:var(--'+k.toLowerCase()+')"></i><span>'+k+'</span></div>'}).join('')+'</div></div>';
+}
+function pteam(){
+  var t=S.team;
+  return '<div class="row"><div class="big sp">Team</div><button class="lnk" data-a="logout">Log out</button></div><p class="sub">Signed in as '+esc(S.role.type)+', '+esc(S.role.role)+'.</p>'+
+   '<div class="card"><div style="font-weight:600;font-size:17px">'+esc(t.name)+'</div><div class="muted small">'+t.members.length+' members</div>'+
+   '<dl class="kv" style="margin-top:12px"><dt>Coverage</dt><dd>'+esc(t.cov.join(', '))+'</dd><dt>Timings</dt><dd>'+esc(t.time)+'</dd></dl></div>'+
+   '<div class="card" style="margin-top:10px"><div style="font-weight:600;margin-bottom:8px">Members</div>'+t.members.map(function(m){return '<div class="row" style="padding:6px 0"><div class="avatar" style="width:34px;height:34px;font-size:14px;margin:0">'+esc(m.n.replace(/^(Dr\.|Nurse)\s/,'').charAt(0))+'</div><div class="sp">'+esc(m.n)+'</div><span class="muted small" style="text-transform:capitalize">'+esc(m.r)+'</span></div>'}).join('')+'</div>'+
+   '<div class="stack" style="margin-top:12px"><button class="btn alt" data-a="sheet" data-v="cov">Change coverage</button><button class="btn alt" data-a="toast" data-v="Team creation is not part of this prototype">Create new team</button></div>';
+}
+screens.d_home=function(){
+  var b={patients:plist,map:pmap,tasks:ptasks,board:pboard,stats:pstats,team:pteam}[S.tab]();
+  return {h:'',b:b,tabs:true};
+};
+screens.d_patient=function(){
+  var p=byId(S.sel),tab=S.dtab,c='';
+  var tabs=[['triage','Triage'],['vitals','Vitals'],['history','History'],['notes','Notes']];
+  var seg='<div class="seg">'+tabs.map(function(t){return '<button data-a="dtab" data-v="'+t[0]+'" class="'+(tab===t[0]?'on':'')+'">'+t[1]+'</button>'}).join('')+'</div>';
+  if(tab==='triage'){
+    var opts=SUGGEST[p.pri];
+    c='<dl class="kv"><dt>Priority</dt><dd>'+badge(p.pri)+'</dd><dt>Complaint</dt><dd>'+esc(p.complaint)+'</dd><dt>Arrived</dt><dd>'+esc(p.arrival)+', '+esc(p.mode)+'</dd><dt>Comments</dt><dd>'+esc(p.comments||'No comments')+'</dd></dl>'+
+      (p.inf?'<div class="note" style="background:var(--warn-soft)">Infectious disease flag. Isolation advised.</div>':'')+locHtml(p)+
+      '<div class="field" style="margin-top:16px"><label for="ar">Area of coverage (suggested for '+p.pri+')</label><select id="ar" class="in" data-a-change="area">'+AREAS.map(function(a){return '<option'+(p.area===a?' selected':'')+'>'+a+(opts.indexOf(a)>-1?'':' (not usual)')+'</option>'}).join('')+'</select></div>';
+  }else if(tab==='vitals'){c=vitalsGrid(p.v)}
+  else if(tab==='history'){c=p.hist.length?'<div class="plist">'+p.hist.map(function(h){return '<div class="card"><div class="muted small">'+esc(h.d)+'</div><div>'+esc(h.t)+'</div></div>'}).join('')+'</div>':'<div class="muted">No prior visits on record.</div>'}
+  else{c='<div class="field"><label for="cn">Consult note</label><textarea id="cn" class="in" data-bind="dd.note" placeholder="Examination, impression, plan">'+esc(S.dd.note||'')+'</textarea></div><button class="btn sm" data-a="savenote">Save note</button>'+
+    '<div class="plist" style="margin-top:16px">'+p.notes.map(function(n){return '<div class="card"><div class="muted small">'+esc(n.by)+', '+esc(n.at)+'</div><div>'+esc(n.t)+'</div></div>'}).join('')+'</div>'}
+  var open=p.status==='Waiting';
+  var act='<div class="stack" style="margin-top:18px">'+
+    (open?'<button class="btn" data-a="attend">Attend</button>':'')+
+    (p.status==='In progress'?'<button class="btn" data-a="todispose">Dispose</button>':'')+
+    (p.status==='Waiting'||p.status==='In progress'?'<button class="btn alt" data-a="sheet" data-v="senior">Consult senior</button>':'')+'</div>';
+  return {h:header(p.name,{back:true,right:statusPill(p.status)}),b:
+   '<div class="row" style="margin-bottom:12px"><div class="sp muted small">'+esc(p.gender)+', '+esc(p.age)+' years<br>ID '+esc(p.nric)+'</div>'+badge(p.pri)+'</div>'+seg+c+act};
+};
+screens.d_dispose=function(){
+  var p=byId(S.sel),m=S.dmode,d=S.dd;
+  var seg='<div class="seg"><button data-a="dmode" data-v="admit" class="'+(m==='admit'?'on':'')+'">Admit</button><button data-a="dmode" data-v="discharge" class="'+(m==='discharge'?'on':'')+'">Discharge</button></div>';
+  var dx='<div class="field"><label for="dx">Diagnosis</label><textarea id="dx" class="in" data-bind="dd.dx" placeholder="Working diagnosis">'+esc(d.dx||'')+'</textarea></div>';
+  var f;
+  if(m==='admit'){
+    f='<div class="field"><label for="di">Admit discipline</label><select id="di" class="in" data-bind="dd.disc"><option value="">Select</option>'+DISCIPLINES.map(function(x){return '<option'+(d.disc===x?' selected':'')+'>'+x+'</option>'}).join('')+'</select></div>'+
+      '<div class="field"><label>Bed class</label><div class="chips" style="margin-bottom:0">'+BEDS.map(function(b){return '<button class="chip'+(d.bed===b?' on':'')+'" data-a="bed" data-v="'+b+'">'+b+'</button>'}).join('')+'</div></div>'+
+      '<div class="row"><div class="field sp"><label for="ls">Estimated stay (days)</label><input id="ls" class="in" inputmode="numeric" data-bind="dd.los" value="'+esc(d.los||'')+'"></div><div class="field sp"><label for="co">Estimated cost ($)</label><input id="co" class="in" inputmode="numeric" data-bind="dd.cost" value="'+esc(d.cost||'')+'"></div></div>';
+  }else{
+    f='<div class="field"><label for="fu">Follow up</label><input id="fu" class="in" data-bind="dd.fu" placeholder="For example, clinic in 2 weeks" value="'+esc(d.fu||'')+'"></div>'+
+      '<div class="field"><label for="md">Medication</label><input id="md" class="in" data-bind="dd.med" placeholder="For example, paracetamol 500 mg" value="'+esc(d.med||'')+'"></div>'+
+      '<div class="field"><label for="ml">Medical leave (days)</label><input id="ml" class="in" inputmode="numeric" data-bind="dd.ml" value="'+esc(d.ml||'')+'"></div>';
+  }
+  return {h:header('Disposition',{back:true}),b:
+   '<div class="muted small" style="margin-bottom:12px">'+esc(p.name)+', '+badge(p.pri)+'</div>'+seg+dx+f+
+   (S.err?'<div class="err" role="alert">'+esc(S.err)+'</div>':'')+
+   '<div style="margin-top:8px"><button class="btn" data-a="confirmdispose">'+(m==='admit'?'Admit patient':'Discharge patient')+'</button></div>'};
+};
+
+/* sheets */
+function sheetHtml(){
+  var s=S.sheet;if(!s)return '';
+  var inner='';
+  if(s==='task'){
+    inner='<h3>New task</h3><div class="field"><label for="ts">Subject</label><input id="ts" class="in" data-bind="dd.tsub"></div><div class="field"><label for="td">Description</label><textarea id="td" class="in" data-bind="dd.tdesc"></textarea></div>'+
+     '<div class="field"><label for="tr">Send to</label><select id="tr" class="in" data-bind="dd.tto">'+S.team.members.map(function(m){return '<option>'+esc(m.n)+'</option>'}).join('')+'</select></div>'+
+     '<button class="btn" data-a="addtask">Create task</button>';
+  }else if(s==='senior'){
+    inner='<h3>Consult senior</h3><p class="muted small">Sends a task to the senior on duty about this patient.</p><div class="field"><label for="sm">Message</label><textarea id="sm" class="in" data-bind="dd.smsg" placeholder="What do you need advice on?"></textarea></div><button class="btn" data-a="sendsenior">Send to Dr. Lee</button>';
+  }else if(s==='cov'){
+    inner='<h3>Coverage</h3><div class="chips" style="flex-wrap:wrap;overflow:visible;padding-left:0;padding-right:0;margin:0 0 12px">'+AREAS.map(function(a){return '<button class="chip'+(S.team.cov.indexOf(a)>-1?' on':'')+'" data-a="covtoggle" data-v="'+a+'">'+a+'</button>'}).join('')+'</div><button class="btn" data-a="closesheet">Done</button>';
+  }
+  return '<div class="sheetbg" data-a="sheetbg"><div class="sheet" role="dialog" aria-modal="true">'+inner+'<div style="margin-top:10px"><button class="lnk" data-a="closesheet" style="width:100%">Cancel</button></div></div></div>';
+}
+
+/* ---------- render ---------- */
+function render(){
+  var sc=screens[S.screen]();
+  var el=document.getElementById('app');
+  el.innerHTML=(sc.h||'<div style="height:24px"></div>')+'<div class="body" id="scroll">'+sc.b+'</div>'+(sc.tabs?tabbar():'');
+  var dv=document.getElementById('device');var old=dv.querySelector('.sheetbg');if(old)old.remove();
+  var sh=sheetHtml();if(sh){dv.insertAdjacentHTML('beforeend',sh)}
+  if(S.screen==='d_home'&&S.tab==='map')mapDraw();
+}
+
+/* ---------- actions ---------- */
+function setPath(path,val){var parts=path.split('.'),o=S;for(var i=0;i<parts.length-1;i++){o=o[parts[i]]}o[parts[parts.length-1]]=val}
+document.addEventListener('input',function(e){var b=e.target.getAttribute&&e.target.getAttribute('data-bind');if(b)setPath(b,e.target.value)});
+document.addEventListener('change',function(e){
+  var tt=e.target,kk=tt.getAttribute&&tt.getAttribute('data-a-change');
+  if(kk==='mapwin'){S.sim.win=+tt.value;mapDraw();return}
+  if(kk==='maptruth'){S.sim.truth=tt.checked;mapDraw();return}
+  var t=e.target;if(t.getAttribute&&t.getAttribute('data-a-change')==='area'){var p=byId(S.sel);p.area=t.value.replace(' (not usual)','');toast('Area set to '+p.area)}
+});
+document.addEventListener('click',function(e){
+  var t=e.target.closest('[data-a]');if(!t)return;
+  var a=t.getAttribute('data-a'),v=t.getAttribute('data-v');
+  if(a==='sheetbg'&&e.target!==t)return;
+  var A=actions[a];if(A)A(v,t);
+});
+
+var actions={
+  jump:function(v){
+    if(v==='reset'){reset();render();toast('Demo data reset');return}
+    if(v==='patient'){reset();S.screen='p_start';render();return}
+    reset();S.tab=(v==='map')?'map':'patients';S.screen='d_home';
+    if(v==='pdetail'||v==='dispose'){S.sel=1;S.stack=['d_home'];S.screen='d_patient'}
+    if(v==='dispose'){S.stack=['d_home','d_patient'];S.screen='d_dispose';S.dmode='admit'}
+    render();
+  },
+  back:function(){back()},
+  room:function(v){var i=+v;S.sim.sel=(i===S.sim.sel)?-1:i;mapDraw()},
+  showmap:function(v){var p=S.sim.pts[+v];S.sim.sel=(p&&p.rep>-1)?p.rep:-1;S.tab='map';root('d_home')},
+  staff:function(){go('d_role')},
+  kiosk:function(){S.draft=fresh();S.scanned=false;S.q=0;go('p_start')},
+  logout:function(){reset();render()},
+  toast:function(v){toast(v)},
+
+  p_begin:function(){go('p_scan')},
+  p_scan:function(){S.scanned=true;S.draft.name='Aisha Rahman';S.draft.nric='S9206123K';S.draft.age='33';S.draft.gender='Female';render()},
+  p_scanned_next:function(){go('p_profile')},
+  p_photo:function(){S.draft.photo=true;render();toast('Photo added')},
+  p_profile_next:function(){
+    var d=S.draft;if(!d.name.trim()||!d.nric.trim()||!d.age.trim()){S.err='Fill in name, ID number and age to continue.';render();return}
+    S.q=0;S.draft.ans={};go('p_questions');
+  },
+  p_ans:function(v){
+    S.draft.ans[QUESTIONS[S.q].k]=(v==='yes');
+    if(S.q<QUESTIONS.length-1){S.q++;render()}else{S.q=0;go('p_vitals')}
+  },
+  p_sample:function(){S.draft.v={temp:'37.2',bp:'122/78',hr:'82',pain:'3',rr:'16',o2:'98'};render()},
+  p_submit:function(){
+    var v=S.draft.v,missing=VITALS.some(function(x){return String(v[x.k]).trim()===''});
+    if(missing){S.err='Fill in all six vital signs.';render();return}
+    var a=S.draft.ans,pri=suggest(v,a),area=a.resp&&pri!=='P1'?'Isolation':SUGGEST[pri][0];
+    var comp=a.chest?'Chest pain':a.breath?'Shortness of breath':a.resp?'Fever or cough':'General review';
+    var id=S.nextId++,q=(pri==='P1'?'R-':pri==='P2'?'T-':'A-')+('00'+(S.queue++)).slice(-3);
+    var now=new Date(),hh=now.getHours(),mm=('0'+now.getMinutes()).slice(-2);
+    S.patients.push({id:id,name:S.draft.name,nric:S.draft.nric.slice(0,5)+'***'+S.draft.nric.slice(-1),age:+S.draft.age||S.draft.age,gender:S.draft.gender,pri:pri,area:area,complaint:comp,arrival:((hh%12)||12)+':'+mm+(hh<12?' am':' pm'),mode:'Walk-in',status:'Waiting',inf:!!a.resp,comments:'Self triage at kiosk.'+(a.travel?' Travelled overseas recently.':''),v:JSON.parse(JSON.stringify(v)),hist:[],notes:[],dx:''});
+    S.draft.result={pri:pri,area:area,q:q,id:id};
+    S.err='';go('p_result');
+  },
+  p_done:function(){S.draft=fresh();root('login')},
+  p_to_doctor:function(){S.draft=fresh();S.tab='patients';S.filter='Waiting';root('d_home')},
+
+  d_type:function(v){S.role.type=v;S.role.role=TYPES[v][0];render()},
+  d_rolepick:function(v){S.role.role=v;render()},
+  d_enter:function(){S.tab='patients';S.filter='All';root('d_home')},
+  tab:function(v){S.tab=v;render()},
+  filter:function(v){S.filter=v;render()},
+  open:function(v){S.sel=+v;S.dtab='triage';S.dd={};go('d_patient')},
+  dtab:function(v){S.dtab=v;render()},
+  attend:function(){var p=byId(S.sel);p.status='In progress';render();toast('You are now attending '+p.name)},
+  savenote:function(){
+    var p=byId(S.sel),t=(S.dd.note||'').trim();if(!t){toast('Write a note first');return}
+    var now=new Date(),hh=now.getHours();
+    p.notes.unshift({t:t,by:'You',at:((hh%12)||12)+':'+('0'+now.getMinutes()).slice(-2)+(hh<12?' am':' pm')});S.dd.note='';render();toast('Note saved');
+  },
+  todispose:function(){S.dd={};S.dmode='admit';go('d_dispose')},
+  dmode:function(v){S.dmode=v;S.err='';render()},
+  bed:function(v){S.dd.bed=v;render()},
+  confirmdispose:function(){
+    var p=byId(S.sel),d=S.dd;
+    if(!(d.dx||'').trim()){S.err='Add a diagnosis first.';render();return}
+    if(S.dmode==='admit'&&(!d.disc||!d.bed)){S.err='Choose an admit discipline and bed class.';render();return}
+    p.dx=d.dx;p.status=S.dmode==='admit'?'Admitted':'Discharged';
+    var name=p.name,st=p.status;S.dd={};S.stack=['d_home'];S.screen='d_home';S.tab='patients';render();toast(name+' '+st.toLowerCase());
+  },
+  tasktoggle:function(v){var t=S.tasks.filter(function(x){return x.id===+v})[0];t.status=t.status==='Done'?'Pending':'Done';render()},
+  sheet:function(v){S.sheet=v;S.dd=Object.assign({},S.dd);render()},
+  sheetbg:function(){S.sheet=null;render()},
+  closesheet:function(){S.sheet=null;render()},
+  addtask:function(){
+    var d=S.dd;if(!(d.tsub||'').trim()){toast('Add a subject');return}
+    S.tasks.unshift({id:Date.now(),subject:d.tsub,desc:d.tdesc||'',to:[d.tto||S.team.members[0].n],status:'Pending'});
+    S.dd={};S.sheet=null;render();toast('Task created');
+  },
+  sendsenior:function(){
+    var p=byId(S.sel),m=(S.dd.smsg||'').trim();
+    S.tasks.unshift({id:Date.now(),subject:'Senior review: '+p.name,desc:m||'Please review this patient.',to:['Dr. Lee'],status:'Pending'});
+    S.dd={};S.sheet=null;render();toast('Sent to Dr. Lee');
+  },
+  covtoggle:function(v){var c=S.team.cov,i=c.indexOf(v);if(i>-1)c.splice(i,1);else c.push(v);render()}
+};
+
+setInterval(simTick,700);
+render();
+})();
+</script>
+</body>
+</html>
